@@ -8,7 +8,7 @@ await build({ entryPoints: ['src/main/preload.ts'], bundle: true, platform: 'nod
 await copyFile('src/downloads/torrent-worker.py','dist/torrent-worker.py');
 const server = await createServer();
 await server.listen();
-const child = spawn(await electronPath(), ['.'], { stdio: 'inherit', env: { ...process.env, ELECTRON_RUN_AS_NODE: '', CINESSD_DEV_URL: 'http://127.0.0.1:5173' } });
+const child = spawn(await electronPath(), ['.'], { stdio: 'inherit', env: Object.fromEntries(Object.entries({ ...process.env, CINESSD_DEV_URL: 'http://127.0.0.1:5173' }).filter(([key]) => key.toUpperCase() !== 'ELECTRON_RUN_AS_NODE')) });
 async function stop() { child.kill(); await server.close(); }
 child.on('exit', async code => { await server.close(); process.exit(code ?? 0); });
 for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, stop);

@@ -28,7 +28,7 @@ const output = path.resolve('test-results'); await mkdir(output,{ recursive: tru
 let runtime: Awaited<ReturnType<typeof electron.launch>> | undefined;
 const errors: string[] = [];
 async function launch() {
-  runtime = await electron.launch({ executablePath: process.env.CINESSD_ELECTRON || '/usr/bin/electron',args: [path.resolve('.'),'--password-store=basic'],env: { ...process.env,ELECTRON_RUN_AS_NODE: '',CINESSD_DATA_DIR: config },timeout: 30000 });
+  runtime = await electron.launch({ executablePath: process.env.CINESSD_ELECTRON || '/usr/bin/electron',args: [path.resolve('.'),'--password-store=basic'],env: Object.fromEntries(Object.entries({ ...process.env,CINESSD_DATA_DIR: config }).filter(([key]) => key.toUpperCase() !== 'ELECTRON_RUN_AS_NODE')),timeout: 30000 });
   const page = await runtime.firstWindow(); page.on('pageerror',error => errors.push(error.message)); page.on('console',message => { if (message.type() === 'error') errors.push(message.text()); });
   await page.getByRole('button',{ name: 'Umbra, início' }).waitFor(); return page;
 }

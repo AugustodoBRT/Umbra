@@ -112,7 +112,7 @@ export class EmbeddedPlayer {
     await this.store.assertDisk(); this.save(false);
     if (this.state.error) throw new Error(this.state.error);
   }
-  private killConverters() { for (const child of this.converters) { child.stdout?.destroy(); child.kill('SIGKILL'); } }
+  private killConverters() { for (const child of this.converters) child.kill('SIGKILL'); }
   async stop() {
     this.save(true);
     // Release video handles before callers move or delete files, including on Windows.
@@ -121,7 +121,7 @@ export class EmbeddedPlayer {
       stream.once('close',() => resolve()); stream.destroy();
     })).concat([...this.converters].map(child => new Promise<void>(resolve => {
       if (child.exitCode !== null || child.signalCode !== null) { resolve(); return; }
-      child.once('close',() => resolve()); child.stdout?.destroy(); child.kill('SIGKILL');
+      child.once('exit',() => resolve()); child.kill('SIGKILL');
     }))));
     this.store = undefined; this.file = undefined; this.session = undefined; this.external.clear(); this.absolute = '';
     this.state = emptyPlayer(); this.publish();
