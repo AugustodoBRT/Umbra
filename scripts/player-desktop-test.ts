@@ -6,9 +6,12 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { until } from '../tests/helpers';
 import { mediaTool } from '../src/runtime/tools';
+import { Credentials } from '../src/storage/credentials';
 const directory = await mkdtemp(path.join(tmpdir(),'umbra-player-'));
 const root = path.join(directory,'Coleção de teste — ação'); const config = path.join(directory,'computer');
 await mkdir(root); await mkdir(config); await mkdir('test-results',{ recursive: true });
+// This suite exercises local playback, without fetching the public discovery catalog.
+await new Credentials(config,{ available: () => false,encrypt: () => Buffer.alloc(0),decrypt: () => '' }).saveDocument('addons',[]);
 const subtitle = path.join(root,'captions.srt');
 await writeFile(subtitle,'1\n00:00:00,000 --> 00:00:40,000\nUma sessão dentro do Umbra.\n');
 const ffmpeg = mediaTool('ffmpeg');
@@ -20,7 +23,8 @@ try {
   const packaged = process.env.UMBRA_PACKAGED_EXECUTABLE;
   runtime = await electron.launch({ executablePath: packaged || process.env.CINESSD_ELECTRON || '/usr/bin/electron',args: packaged ? ['--password-store=basic'] : [path.resolve('.'),'--password-store=basic'],env: Object.fromEntries(Object.entries({ ...process.env,CINESSD_DATA_DIR: config }).filter(([key]) => key.toUpperCase() !== 'ELECTRON_RUN_AS_NODE')),timeout: 60000 });
   if (packaged) assert.equal(await runtime.evaluate(({ app }) => app.getVersion()),JSON.parse(await readFile('package.json','utf8')).version);
-  runtime.process().stderr?.on('data', data => { nativeLogs = (nativeLogs+data).slice(-6000); }); const page = await runtime.firstWindow(); page.on('pageerror',error => errors.push(error.message)); page.on('console',message => { if (message.type() === 'error') errors.push(message.text()); });
+  runtime.process().stderr?.on('data', data => { nativeLogs = (nativeLogs+data).slice(-6000); }); const page = await runtime.firstWindow(); page.on('pageerror',error => errors.push(error.message)); page.on('console',message => { if (message.type() === 'error') errors.push(`${message.text()} ${message.location().url}`.trim()); });
+  page.on('response',response => { if (response.status() >= 400) console.error('PLAYER RESOURCE',response.status(),response.url()); });
   await page.getByRole('button',{ name: 'Umbra, início' }).waitFor();
   assert.equal((await page.evaluate(() => window.cine.snapshot())).library,null);
   await runtime.evaluate(({ dialog },selected) => { dialog.showOpenDialog = async () => ({ canceled: false,filePaths: [selected] }); },root);

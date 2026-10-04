@@ -30,7 +30,8 @@ def publish(source, target):
 
 if len(sys.argv) > 1 and sys.argv[1] == '--publish':
     try:
-        request = json.loads(sys.stdin.readline())
+        # Electron sends UTF-8 bytes, regardless of the Windows ANSI pipe encoding.
+        request = json.loads(sys.stdin.buffer.readline())
         publish(request['source'], request['target'])
         emit('published')
     except Exception:
