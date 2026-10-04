@@ -154,7 +154,7 @@ test('motor torrent real pausa, retoma e baixa só o episódio solicitado de um 
     });
     worker.stdin!.write(`${JSON.stringify(job)}\n`);
     await until(() => pausedEvents.some(e => e.event === 'stopped' || e.event === 'error') || worker!.exitCode !== null,15000);
-    assert.ok(pausedEvents.some(e => e.event === 'stopped')); const resume = pausedEvents.filter(e => e.event === 'resume').at(-1)?.data; assert.ok(resume);
+    assert.ok(pausedEvents.some(e => e.event === 'stopped'),JSON.stringify(pausedEvents)); const resume = pausedEvents.filter(e => e.event === 'resume').at(-1)?.data; assert.ok(resume);
     if (worker.exitCode === null) await once(worker,'exit');
     assert.equal(worker.exitCode,0);
     worker = spawn('/usr/bin/python',['-u',path.resolve('src/downloads/torrent-worker.py')],{ stdio: ['pipe','pipe','pipe'] });

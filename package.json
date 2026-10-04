@@ -77,7 +77,7 @@
         }
       ],
       "icon": "assets/icon.ico",
-      "artifactName": "Umbra-${version}-${arch}-${target}.${ext}",
+      "artifactName": "Umbra-${version}-${arch}-setup.${ext}",
       "extraResources": [
         {
           "from": "packaging/windows/bin",
@@ -95,7 +95,8 @@
       "allowToChangeInstallationDirectory": true,
       "deleteAppDataOnUninstall": false,
       "license": "LICENSE",
-      "shortcutName": "Umbra"
+      "shortcutName": "Umbra",
+      "artifactName": "Umbra-${version}-${arch}-nsis.${ext}"
     },
     "portable": {
       "artifactName": "Umbra-${version}-x64-portable.exe"
