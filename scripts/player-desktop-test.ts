@@ -112,6 +112,8 @@ try {
   console.error(error,errors,nativeLogs);
   if (runtime) try {
     const page = await runtime.firstWindow();
+    const snapshot = await page.evaluate(() => window.cine.snapshot());
+    console.log(JSON.stringify({ library: snapshot.library,scan: snapshot.scan,error: snapshot.error },null,2));
     console.log(JSON.stringify(await page.evaluate(async () => ({ player: (await window.cine.snapshot()).player, video: (() => { const v=document.querySelector('video'); return v && {ready: v.readyState, time:v.currentTime, tracks: [...v.textTracks].map(t=>({mode:t.mode, cues:t.cues?.length,active:t.activeCues?.length})), track: v.querySelector('track')?.readyState, cueTimes: [...(v.textTracks[0]?.cues ?? [])].map(c=>({start:c.startTime,end:c.endTime,text:(c as VTTCue).text}))}; })() })),null,2));
     await page.screenshot({path: 'test-results/player-failure.png'});
   } catch {}
