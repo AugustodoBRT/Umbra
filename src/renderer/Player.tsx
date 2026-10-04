@@ -17,10 +17,16 @@ export function Player({ state,run }: { state: PlayerState; run: Run }) {
     setLoading(true); setError('');
     const failed = () => { if (alive) { setError('Não foi possível reproduzir este vídeo. Confira o arquivo e o FFmpeg nas configurações.'); void window.cine.playbackReport(source.token,latest.current.position,false,true); } };
     element.addEventListener('error',failed);
+    const activateCue = () => {
+      if (alive && latest.current.paused && element.currentTime === 0 && element.readyState >= 2 && element.textTracks[0]?.cues?.length) {
+        element.currentTime = Math.max(.001,element.buffered.length ? element.buffered.start(0)+.001 : .001);
+      }
+    };
+    element.addEventListener('loadeddata',activateCue);
     const loaded = () => {
       if (source.mode === 'file') element.currentTime = source.start;
       const track = element.querySelector('track');
-      if (track && source.subtitleUrl) { track.src = source.subtitleUrl; track.track.mode = 'showing'; }
+      if (track && source.subtitleUrl) { track.addEventListener('load',activateCue,{ once: true }); track.src = source.subtitleUrl; track.track.mode = 'showing'; }
       if (latest.current.paused) element.pause();
     };
     element.addEventListener('loadedmetadata',loaded);
@@ -59,7 +65,7 @@ export function Player({ state,run }: { state: PlayerState; run: Run }) {
       const position = element.currentTime+(source.mode === 'stream' ? source.start : 0);
       void window.cine.playbackReport(source.token,Math.min(state.duration,position),false).catch(() => {});
     },500);
-    return () => { alive = false; abort.abort(); clearInterval(timer); element.removeEventListener('error',failed); element.removeEventListener('loadedmetadata',loaded); element.pause(); element.removeAttribute('src'); element.load(); if (objectURL) URL.revokeObjectURL(objectURL); };
+    return () => { alive = false; abort.abort(); clearInterval(timer); element.removeEventListener('error',failed); element.removeEventListener('loadedmetadata',loaded); element.removeEventListener('loadeddata',activateCue); element.pause(); element.removeAttribute('src'); element.load(); if (objectURL) URL.revokeObjectURL(objectURL); };
   },[state.source?.token]);
   useEffect(() => { if (!video.current) return; video.current.volume = state.volume/100; video.current.playbackRate = state.speed; if (state.paused) video.current.pause(); else void video.current.play().catch(() => {}); },[state.paused,state.volume,state.speed,state.source?.token]);
   useEffect(() => {

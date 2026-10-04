@@ -33,7 +33,9 @@ try {
   await page.getByRole('button',{ name: 'Pausar',exact: true }).click();
   const audio = file.tracks.filter(x => x.type === 'audio'); assert.equal(audio.length,2);
   await page.getByRole('combobox',{ name: 'Faixa de áudio' }).selectOption(String(audio[1].id));
+  await page.waitForFunction(() => document.querySelector('video')!.readyState >= 2);
   await page.getByRole('combobox',{ name: 'Faixa de legenda' }).selectOption(String(file.tracks.find(x => x.type === 'subtitle')!.id));
+  await page.waitForFunction(() => document.querySelector('video')!.querySelector('track')?.readyState === 2);
   await page.evaluate(() => window.cine.control('seek',5));
   await page.waitForFunction(() => { const v = document.querySelector('video'); return v && v.readyState >= 2 && v.textTracks[0]?.activeCues?.length; },{},{ timeout: 30000 });
   assert.match(await page.evaluate(() => (document.querySelector('video')!.textTracks[0].activeCues![0] as VTTCue).text),/Uma sessão dentro/);

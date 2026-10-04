@@ -19,6 +19,8 @@ jobs:
       - name: Install media tools
         run: sudo apt-get update && sudo apt-get install -y ffmpeg python3-libtorrent python-is-python3 xvfb
       - run: npm ci
+      - name: Prepare Electron runtime
+        run: node -p "require('electron')"
       - run: npm run build
       - run: npm test
       - name: Test embedded player in Electron
@@ -60,6 +62,8 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
       - name: Test packaged Windows app and included tools
         run: npm run test:windows
+        env:
+          DEBUG: pw:browser
       - name: Checksums
         shell: pwsh
         run: |
