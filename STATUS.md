@@ -19,9 +19,11 @@ Marca reformulada com símbolo U de película e corte diagonal de luz, vetor tra
 | 1 — Núcleo Linux | Implementado e testado com mídia sintética real: projeto executável, seletor, SQLite/migrações, scanner, busca/grade, detalhes, player integrado HTML5/FFmpeg, retomada e nota/resenha persistentes |
 | 2 — Catálogo Linux | Implementação inicial: TMDB/OMDb, identificação manual/automática, imagens offline, temporadas/episódios, listas, favoritos, resenhas e interface; provedores autenticados ainda precisam de validação com chaves reais |
 | 3 — Robustez | Backup SQLite, exportação JSON, bloqueio, detecção/reconexão e testes críticos implementados; ainda requer testes em SSD exFAT real, falhas físicas e coleções grandes |
-| 4 — Windows portátil | NSIS + portable x64 configurados, ferramentas incluídas e teste do aplicativo empacotado em GitHub Actions |
+| 4 — Windows portátil | NSIS + portable x64 gerados, ferramentas incluídas e aplicativo empacotado aprovado no Windows pelo GitHub Actions |
 
 ## Verificação realizada
+
+Build de referência: [`8a73945`](https://github.com/AugustodoBRT/Umbra/commit/8a73945bfd7d0d2fb6466d558e03ef08e72b912b). [CI Linux e Windows aprovada](https://github.com/AugustodoBRT/Umbra/actions/runs/37230936376). O teste Windows abre o executável empacotado sem biblioteca anterior, conecta uma coleção temporária com nomes Unicode e verifica MP4 direto, conversão MKV, dois áudios, legendas, pausa/busca, volume, velocidade, tela cheia, retomada e exclusão durante reprodução. O worker torrent incluído passa a inspeção de disponibilidade e a publicação sem sobrescrita.
 
 - `npm run build`: TypeScript e produção Electron/React aprovados.
 - `npm test`: **47 testes aprovados**, com FFmpeg/ffprobe reais e um torrent sintético servido por libtorrent local.
