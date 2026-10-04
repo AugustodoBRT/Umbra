@@ -170,8 +170,12 @@ try:
             if os.path.islink(os.path.join(directory, partial)):
                 raise ValueError('Arquivo temporário inválido.')
             handle.prioritize_files([0] * info.num_files())
-            renamed = handle.get_renamed_files()
-            mapped = renamed.get(selected) if isinstance(renamed, dict) else renamed.file_path(files, selected)
+            if hasattr(handle, 'get_renamed_files'):
+                renamed = handle.get_renamed_files()
+                mapped = renamed.get(selected) if isinstance(renamed, dict) else renamed.file_path(files, selected)
+            else:
+                # libtorrent 2.0 exposes the renamed paths through torrent_info.
+                mapped = files.file_path(selected)
             if mapped == partial:
                 priorities = [0] * info.num_files()
                 priorities[selected] = 7

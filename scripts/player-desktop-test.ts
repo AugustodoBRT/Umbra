@@ -15,11 +15,11 @@ const ffmpeg = mediaTool('ffmpeg');
 execFileSync(ffmpeg,['-v','error','-f','lavfi','-i','testsrc2=size=640x360:rate=24:duration=40','-f','lavfi','-i','sine=frequency=440:duration=40','-f','lavfi','-i','sine=frequency=880:duration=40','-i',subtitle,'-map','0:v','-map','1:a','-map','2:a','-map','3:s','-c:v','mpeg4','-c:a','aac','-c:s','srt','-metadata:s:a:0','language=eng','-metadata:s:a:1','language=por','-metadata:s:s:0','language=por',path.join(root,'Sessão Integrada (2026).mkv')],{ windowsHide: true });
 execFileSync(ffmpeg,['-v','error','-f','lavfi','-i','color=teal:size=640x360:rate=24:duration=8','-c:v','libx264','-pix_fmt','yuv420p',path.join(root,'Sessão Direta (2026).mp4')],{ windowsHide: true });
 let runtime: Awaited<ReturnType<typeof electron.launch>> | undefined;
-const errors: string[] = [];
+const errors: string[] = []; let nativeLogs = ''; 
 try {
   const packaged = process.env.UMBRA_PACKAGED_EXECUTABLE;
   runtime = await electron.launch({ executablePath: packaged || process.env.CINESSD_ELECTRON || '/usr/bin/electron',args: packaged ? ['--password-store=basic'] : [path.resolve('.'),'--password-store=basic'],env: { ...process.env,ELECTRON_RUN_AS_NODE: '',CINESSD_DATA_DIR: config },timeout: 60000 });
-  const page = await runtime.firstWindow(); page.on('pageerror',error => errors.push(error.message)); page.on('console',message => { if (message.type() === 'error') errors.push(message.text()); });
+  runtime.process().stderr?.on('data', data => { nativeLogs = (nativeLogs+data).slice(-6000); }); const page = await runtime.firstWindow(); page.on('pageerror',error => errors.push(error.message)); page.on('console',message => { if (message.type() === 'error') errors.push(message.text()); });
   await page.getByRole('button',{ name: 'Umbra, início' }).waitFor();
   assert.equal((await page.evaluate(() => window.cine.snapshot())).library,null);
   await runtime.evaluate(({ dialog },selected) => { dialog.showOpenDialog = async () => ({ canceled: false,filePaths: [selected] }); },root);
@@ -55,5 +55,12 @@ try {
   const work = (await page.evaluate(() => window.cine.snapshot())).works.find(x => x.files.some(f => f.id === file.id))!;
   await page.evaluate(id => window.cine.removeWork(id),work.id); await assert.rejects(stat(path.join(root,file.path)),{ code: 'ENOENT' });
   assert.deepEqual(errors,[]); console.log('PLAYER OK: native MP4, MKV conversion, two audio tracks, embedded subtitles, seek, pause, volume, speed, fullscreen, resume and deletion.');
-} catch (error) { console.error(errors); if (runtime) console.log(JSON.stringify(await (await runtime.firstWindow()).evaluate(async () => ({ player: (await window.cine.snapshot()).player, video: (() => { const v=document.querySelector('video'); return v && {ready: v.readyState, time:v.currentTime, tracks: [...v.textTracks].map(t=>({mode:t.mode, cues:t.cues?.length,active:t.activeCues?.length})), track: v.querySelector('track')?.readyState, cueTimes: [...(v.textTracks[0]?.cues ?? [])].map(c=>({start:c.startTime,end:c.endTime,text:(c as VTTCue).text}))}; })() })),null,2));  if (runtime) { const page = await runtime.firstWindow(); await page.screenshot({ path: 'test-results/player-failure.png' }).catch(() => {}); } throw error; }
-finally { await runtime?.close(); await rm(directory,{ recursive: true,force: true }); }
+} catch (error) {
+  console.error(error,errors,nativeLogs);
+  if (runtime) try {
+    const page = await runtime.firstWindow();
+    console.log(JSON.stringify(await page.evaluate(async () => ({ player: (await window.cine.snapshot()).player, video: (() => { const v=document.querySelector('video'); return v && {ready: v.readyState, time:v.currentTime, tracks: [...v.textTracks].map(t=>({mode:t.mode, cues:t.cues?.length,active:t.activeCues?.length})), track: v.querySelector('track')?.readyState, cueTimes: [...(v.textTracks[0]?.cues ?? [])].map(c=>({start:c.startTime,end:c.endTime,text:(c as VTTCue).text}))}; })() })),null,2));
+    await page.screenshot({path: 'test-results/player-failure.png'});
+  } catch {}
+  throw error;
+} finally { await runtime?.close(); await rm(directory,{ recursive: true,force: true }); }
