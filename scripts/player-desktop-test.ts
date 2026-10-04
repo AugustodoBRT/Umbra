@@ -52,6 +52,8 @@ try {
   await page.getByRole('button',{ name: 'Fechar ajustes de legenda' }).click();
   const appearance = { fontSize: 36,color: '#ffe066',background: 'none',outline: false,bottom: 12 };
   await until(async () => JSON.stringify((await page.evaluate(() => window.cine.snapshot())).settings.subtitleAppearance) === JSON.stringify(appearance));
+  // The main-process snapshot changes before the asynchronous disk write completes.
+  await until(async () => JSON.stringify(JSON.parse(await readFile(path.join(config,'library.json'),'utf8')).subtitleAppearance) === JSON.stringify(appearance));
   assert.deepEqual(JSON.parse(await readFile(path.join(config,'library.json'),'utf8')).subtitleAppearance,appearance);
   assert.match(await page.locator('[data-subtitle-appearance]').textContent() ?? '',/font-size: 36px; color: #ffe066; background-color: transparent; text-shadow: none/);
   assert.equal(await page.evaluate(() => (document.querySelector('video')!.textTracks[0].activeCues![0] as VTTCue).line),88);
