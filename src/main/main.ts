@@ -310,7 +310,7 @@ async function ready() {
     } catch { return new Response('Não encontrado',{ status: 404 }); }
   });
   session.defaultSession.setPermissionRequestHandler((_contents,_permission,callback) => callback(false));
-  window = new BrowserWindow({ width: 1440,height: 920,minWidth: 960,minHeight: 640,title: 'Umbra',backgroundColor: '#090b09',icon: path.join(__dirname,'../icon.svg'),autoHideMenuBar: true,webPreferences: { preload: path.join(__dirname,'preload.cjs'),contextIsolation: true,nodeIntegration: false,sandbox: true,autoplayPolicy: 'no-user-gesture-required' } });
+  window = new BrowserWindow({ width: 1440,height: 920,minWidth: 960,minHeight: 640,title: 'Umbra',backgroundColor: '#090b09',icon: path.join(__dirname,'../icon.png'),autoHideMenuBar: true,webPreferences: { preload: path.join(__dirname,'preload.cjs'),contextIsolation: true,nodeIntegration: false,sandbox: true,autoplayPolicy: 'no-user-gesture-required' } });
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   window.webContents.on('will-navigate',event => event.preventDefault());
   window.on('enter-full-screen',() => player.setFullscreen(true));

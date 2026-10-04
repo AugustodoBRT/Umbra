@@ -16,3 +16,4 @@ try {
 process.env.UMBRA_PACKAGED_EXECUTABLE = path.resolve('release/win-unpacked/Umbra.exe');
 process.env.CINESSD_FFMPEG = path.join(resources,'ffmpeg.exe'); process.env.CINESSD_FFPROBE = path.join(resources,'ffprobe.exe');
 await import('./player-desktop-test');
+await import('./online-desktop-test');

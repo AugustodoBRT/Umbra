@@ -11,7 +11,7 @@
 
 <p align="center"><a href="https://github.com/AugustodoBRT/Umbra/releases">Baixar para Windows</a> · <a href="docs/USAGE.md">Guia de uso</a> · <a href="ARCHITECTURE.md">Como funciona</a></p>
 
-![Biblioteca do Umbra com mídia sintética de teste](assets/screenshots/library.png)
+![Explorar no Umbra com filmes e pôsteres reais do catálogo Cinemeta](assets/screenshots/explore.png)
 
 ## O que tem no Umbra
 
@@ -38,7 +38,7 @@
 
 **Não depende do meu SSD.** O aplicativo abre sem biblioteca conectada e não tem um caminho de vídeos fixo. Electron, FFmpeg, ffprobe e o motor torrent estão incluídos: não é necessário instalar Node.js, Python, mpv ou Stremio. A primeira versão é distribuída sem assinatura de código; o Windows pode exibir “editor desconhecido”.
 
-As builds Windows são produzidas pelo GitHub Actions e verificadas com o **aplicativo empacotado**, vídeo sintético, faixas de áudio, legenda, retomada e exclusão. Veja o resultado na aba [Actions](https://github.com/AugustodoBRT/Umbra/actions). Os hashes dos executáveis acompanham cada release em `SHA256SUMS.txt`.
+As builds Windows são produzidas pelo GitHub Actions e verificadas com o **aplicativo empacotado**, vídeo sintético, faixas de áudio, legenda, retomada, exclusão e downloads de filme e temporada em uma pasta vazia. Veja o resultado na aba [Actions](https://github.com/AugustodoBRT/Umbra/actions). Os hashes dos executáveis acompanham cada release em `SHA256SUMS.txt`.
 
 ## Executar no Linux
 
@@ -79,6 +79,8 @@ npm run test:online       # catálogo e downloads sintéticos
 ```
 
 Os testes gráficos precisam de uma sessão desktop; no Linux CI, use `xvfb-run -a`. Toda mídia usada nas verificações é sintética, com bibliotecas temporárias. Nenhum filme do usuário acompanha o projeto.
+
+O print do Explorar usa títulos e pôsteres reais do Cinemeta. Para refazê-lo após o build, execute `node --import tsx scripts/capture-explore.ts` em uma sessão desktop com acesso à internet; a captura usa um perfil temporário.
 
 No **Windows x64**, com Node.js 24+ e Python 3.12 para construir:
 

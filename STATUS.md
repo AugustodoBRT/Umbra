@@ -10,7 +10,7 @@ Solicitação posterior incorporada: catálogo online sem SSD e complementos do 
 
 ## Identidade Umbra
 
-Marca reformulada com símbolo U de película e corte diagonal de luz, vetor transparente e variante para fundos claros. Exploração original via geração de imagem preservada em `assets/brand/umbra-logo-generated.png`. Paleta preto/ivório/verde luminoso, títulos editoriais, rótulos monoespaçados e fotograma na abertura. Prancha em `assets/brand/identity-preview.html` e PNG ao lado. Interface local e online verificadas no Electron; largura mínima de 960 px e larguras de 1180/1440 px conferidas com dados vazios em Chromium.
+Marca reformulada com símbolo de abertura de projetor de seis lâminas, sem letras, vetor transparente e variante para fundos claros. Exploração original via geração de imagem preservada em `assets/brand/umbra-logo-generated.png`. Paleta preto/ivório/verde luminoso, títulos editoriais, rótulos monoespaçados e fotograma na abertura. Prancha em `assets/brand/identity-preview.html` e PNG ao lado. Interface local e online verificadas no Electron; largura mínima de 960 px e larguras de 1180/1440 px conferidas com dados vazios em Chromium.
 
 ## Etapas
 

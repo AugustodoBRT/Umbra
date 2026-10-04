@@ -108,7 +108,8 @@ export class Downloads {
     try { await this.assertRoot(job); } catch { throw new Error('A pasta de destino está indisponível. Reconecte o SSD e retome o download.'); }
     const relative = relativePath(job.root,job.directory);
     let directory = job.root;
-    for (const component of relative.split(path.sep)) {
+    // relativePath stores portable '/' separators, including on Windows.
+    for (const component of relative.split('/')) {
       directory = path.join(directory,component);
       try { await mkdir(directory); } catch (error: any) { if (error.code !== 'EEXIST') throw error; }
       const actual = await realpath(directory); relativePath(job.root,actual);

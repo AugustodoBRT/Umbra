@@ -1,17 +1,19 @@
-Tela cheia corrigida e legendas personalizáveis no Umbra.
+Downloads corrigidos no Windows e nova identidade visual do Umbra.
 
-- O vídeo ocupa toda a tela, preservando sua proporção, com cabeçalho e controles sobrepostos.
-- Controles e cursor desaparecem após 2,5 segundos sem interação, inclusive com o vídeo pausado ou o mouse sobre os controles. Sair com o mouse do player oculta o overlay imediatamente; mover o mouse revela os controles.
-- Barra de rolagem removida durante a reprodução expandida.
-- F11 e dois cliques alternam tela cheia; Esc sai. Minimizar retorna à janela da biblioteca.
-- Legendas de texto sobem enquanto os controles estão visíveis.
-- Novo painel **Ajustar legenda** com tamanho, cor, fundo, contorno e altura. Preferências salvas no computador para as próximas sessões; ajustes se aplicam às legendas de texto.
-- Ao buscar ou encerrar um vídeo, requisições atrasadas da sessão anterior são canceladas sem gerar um erro falso de arquivo ausente.
+- Corrigido o erro `ENOENT: no such file or directory, mkdir` ao baixar um filme ou temporada em uma pasta sem as subpastas Filmes/Series. Caminhos relativos usam o mesmo separador no Linux e no Windows, e as pastas são criadas uma a uma antes da transferência.
+- Downloads que ficaram com erro podem ser retomados em **Downloads → Retomar** depois da atualização, com a biblioteca de destino conectada.
+- Nova logo de abertura de projetor, sem letras, aplicada na interface, nos ícones da janela, no instalador e no executável portátil.
+- README com captura real do Explorar e pôsteres de filmes do Cinemeta.
+- Mantidos player integrado, tela cheia, áudio, retomada e personalização das legendas.
 
 ### Windows x64
 
-- **Umbra-0.1.1-x64-nsis.exe**: instalador com atalho e escolha de pasta.
-- **Umbra-0.1.1-x64-portable.exe**: executável sem instalação.
+- **Umbra-0.1.2-x64-nsis.exe**: instalador com atalho e escolha de pasta.
+- **Umbra-0.1.2-x64-portable.exe**: executável sem instalação.
 - Electron, FFmpeg, ffprobe e motor torrent incluídos. Não precisa de Node.js, Python, mpv ou de um SSD específico.
 
-Testes Linux e do aplicativo Windows empacotado verificam o tamanho real do vídeo, ausência de rolagem, controles automáticos, atalhos, reprodução, áudio, legendas e retomada. A versão continua sem assinatura de código. `SHA256SUMS.txt` contém os hashes dos executáveis.
+- O perfil e a biblioteca existentes são preservados na atualização.
+
+A publicação exige aprovação dos testes Linux e do aplicativo Windows empacotado. Eles verificam reprodução MP4/MKV, áudio, legendas, controles e tela cheia, retomada, exclusão e downloads HTTP de filme e temporada em uma pasta vazia, com importação automática e persistência da fila. O worker torrent incluído verifica disponibilidade e publicação sem sobrescrever arquivos.
+
+A versão continua sem assinatura de código. `SHA256SUMS.txt` contém os hashes dos executáveis.

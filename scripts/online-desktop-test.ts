@@ -28,7 +28,8 @@ const output = path.resolve('test-results'); await mkdir(output,{ recursive: tru
 let runtime: Awaited<ReturnType<typeof electron.launch>> | undefined;
 const errors: string[] = [];
 async function launch() {
-  runtime = await electron.launch({ executablePath: process.env.CINESSD_ELECTRON || '/usr/bin/electron',args: [path.resolve('.'),'--password-store=basic'],env: Object.fromEntries(Object.entries({ ...process.env,CINESSD_DATA_DIR: config }).filter(([key]) => key.toUpperCase() !== 'ELECTRON_RUN_AS_NODE')),timeout: 30000 });
+  const packaged = process.env.UMBRA_PACKAGED_EXECUTABLE;
+  runtime = await electron.launch({ executablePath: packaged || process.env.CINESSD_ELECTRON || '/usr/bin/electron',args: packaged ? ['--password-store=basic'] : [path.resolve('.'),'--password-store=basic'],env: Object.fromEntries(Object.entries({ ...process.env,CINESSD_DATA_DIR: config }).filter(([key]) => key.toUpperCase() !== 'ELECTRON_RUN_AS_NODE')),timeout: 60000 });
   const page = await runtime.firstWindow(); page.on('pageerror',error => errors.push(error.message)); page.on('console',message => { if (message.type() === 'error') errors.push(message.text()); });
   await page.getByRole('button',{ name: 'Umbra, início' }).waitFor(); return page;
 }
@@ -78,6 +79,8 @@ try {
   assert.ok(await tracks.getByRole('row',{ name: /^Legendas/ }).getByText('Não informado',{ exact: true }).isVisible());
   assert.ok(await tracks.getByRole('row',{ name: /^Idiomas anunciados/ }).getByText('Português (Brasil)',{ exact: true }).isVisible());
   await page.locator('.source-card').screenshot({ animations: 'disabled',path: path.join(output,'15-idiomas-anunciados.png') });
+  // A fresh destination has no Filmes/Series parents. This catches Windows path splitting regressions.
+  for (const folder of ['Filmes','Series']) await assert.rejects(stat(path.join(root,folder)),{ code: 'ENOENT' });
   await runtime!.evaluate(({ dialog },selected) => { dialog.showOpenDialog = async () => ({ canceled: false,filePaths: [selected] }); },root);
   await page.getByRole('button',{ name: 'Baixar filme',exact: true }).click();
   await page.getByRole('heading',{ name: 'Downloads',exact: true }).waitFor();

@@ -106,7 +106,8 @@ input, select, textarea { background: #10130e; border-color: #36402d; border-rad
 .online-intro h2 { font-family: var(--display); font-size: 36px; font-weight: 400; letter-spacing: -1.3px; margin: 9px 0 12px; }
 .online-intro h2 em { font-weight: 400; color: var(--paper); }
 .online-intro p { font-size: 11px; max-width: 520px; }
-.catalog-editorial-mark { font-family: var(--display); font-size: 135px; font-style: italic; line-height: .8; color: #d7f86a17; margin: -25px 0; user-select: none; }
+.catalog-editorial-mark { opacity: .12; flex-shrink: 0; user-select: none; }
+.catalog-editorial-mark .umbra-symbol { width: 112px; height: 112px; }
 .online-intro>.button { font-size: 10px; padding: 11px 13px; margin-left: 0; z-index: 1; }
 .catalog-toolbar { padding-bottom: 20px; border-bottom: 1px solid var(--line); }
 .catalog-toolbar label { font-family: var(--mono); font-size: 9px; }

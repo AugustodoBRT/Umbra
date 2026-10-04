@@ -2,12 +2,12 @@
 
 ## Ideia
 
-Um cinema só seu. A escuridão como espaço para as histórias, com um corte de luz como assinatura. O símbolo é um U de película com cantos internos curvos e uma fenda diagonal transparente. A forma continua reconhecível em uma só cor e em tamanhos pequenos.
+Um cinema só seu. A escuridão como espaço para as histórias, com a abertura de um projetor como assinatura. Seis lâminas formam um círculo em torno de uma abertura hexagonal transparente. O símbolo não usa letras nem monograma e funciona em uma só cor e em tamanhos pequenos.
 
 - `umbra-logo.svg`: assinatura horizontal, com símbolo e nome. O nome usa a mesma pilha de fontes da interface.
 - `umbra-symbol.svg`: desenho vetorial final, transparente, aplicado na interface. Os contornos foram redesenhados para eliminar ruído da geração e garantir leitura em 24 px.
 - `umbra-symbol-dark.svg`: versão escura do símbolo para fundos claros.
-- `../icon.svg`: versão do símbolo com base escura e um pequeno corte verde, para o ícone desktop.
+- `../icon.svg`, `../icon.png` e `../icon.ico`: versão com base escura e uma lâmina verde, para a janela, o aplicativo e o instalador Windows. O ICO inclui tamanhos de 16 a 256 px.
 - `umbra-logo-generated.png`: exploração original gerada pela ferramenta integrada de imagens, preservada sem edição e com transparência.
 - `identity-preview.html`: prancha local da identidade, com símbolo, assinatura, cores e tipografia.
 
@@ -32,4 +32,4 @@ Modo: ferramenta integrada `image_gen`, sem CLI ou chave API.
 
 Prompt final usado:
 
-> Use case: logo-brand. Asset type: production logo symbol for UMBRA, a personal cinema desktop application. Design a distinctive premium geometric U monogram inspired by a strip of film bending into an architectural arch and a projector beam slicing through darkness. One bold continuous U silhouette, two upright stems and a deep sculptural curved bottom, with ONE sharp diagonal negative-space light slit through the upper-right stem; the slit is genuinely transparent. Restrained brutalist Swiss graphic design, confident optical proportions, crisp flat vector-like edges, recognizable at 24px. Single solid warm ivory #eeeade fill, no gradients, no shadow, no stroke, no texture. Center the single symbol in a square composition, symbol fills roughly 75 percent of the canvas. Genuinely transparent background, including all negative space. No text, no letters beyond the abstract U form, no mockup, no board, no app tile, no crescent moon, no play triangle, no film reel, no camera, no decoration. The shape should be original, elegant, sculptural and look like a real independent cinema brand.
+> Use case: logo-brand. Asset type: final replacement logo symbol for Umbra cinema desktop app. Design a compact geometric CINEMA PROJECTOR IRIS emblem: six broad interlocking aperture blades arranged radially into a circular or hexagonal silhouette, forming a clean open hexagon in the center. This must be unmistakably a camera/projector aperture rather than ANY LETTER or monogram. Crisp flat vector style, independent cinema identity, optically balanced and legible at 24px, single solid warm ivory #EEEADE fill. Center one compact symbol occupying 75 percent of a square canvas. Genuinely transparent background and internal gaps. No words, no letters, no U or C shapes, no text, no play button, no mockup, no presentation board, no gradients, no shadows, no textures, no distressed edges. Only the six-blade aperture symbol.

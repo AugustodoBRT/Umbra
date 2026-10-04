@@ -5,6 +5,7 @@ await build({ entryPoints: ['src/main/main.ts'], bundle: true, platform: 'node',
 await build({ entryPoints: ['src/main/preload.ts'], bundle: true, platform: 'node', format: 'cjs', target: 'node24', outfile: 'dist/main/preload.cjs', external: ['electron'] });
 await viteBuild();
 await copyFile('assets/icon.svg','dist/icon.svg');
+await copyFile('assets/icon.png','dist/icon.png');
 await copyFile('src/downloads/torrent-worker.py','dist/torrent-worker.py');
 await mkdir('dist/licenses',{ recursive: true });
 await copyFile('src/renderer/flags/LICENSE','dist/licenses/flag-icons-MIT.txt');
