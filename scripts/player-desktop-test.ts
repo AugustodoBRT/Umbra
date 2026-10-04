@@ -44,7 +44,7 @@ try {
   await page.getByRole('button',{ name: 'Tela cheia do player' }).click(); assert.equal(await runtime.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isFullScreen()),true);
   await page.getByRole('button',{ name: 'Tela cheia do player' }).click();
   await page.screenshot({ animations: 'disabled',path: 'test-results/19-player-integrado.png' });
-  await page.getByRole('button',{ name: 'Minimizar player' }).click(); await page.getByRole('button',{ name: 'Filmes',exact: true }).click(); await page.getByRole('button',{ name: 'Expandir player' }).click();
+  await page.getByRole('button',{ name: 'Minimizar player' }).click(); await page.getByRole('button',{ name: 'Filmes',exact: false }).first().click(); await page.getByRole('button',{ name: 'Expandir player' }).click();
   await page.getByRole('button',{ name: 'Encerrar reprodução' }).click(); snapshot = await page.evaluate(() => window.cine.snapshot()); assert.ok(snapshot.works.find(x => x.files.some(f => f.id === file.id))!.files[0].position >= 5);
   await page.evaluate(id => window.cine.play(id),file.id); snapshot = await page.evaluate(() => window.cine.snapshot()); assert.equal(snapshot.player.audio,audio[1].id); assert.ok(snapshot.player.position >= 5); assert.notEqual(snapshot.player.subtitle,'no'); await page.evaluate(() => window.cine.control('stop'));
   const native = snapshot.works.find(x => x.title.includes('Direta'))!.files[0]; await page.evaluate(id => window.cine.play(id),native.id);

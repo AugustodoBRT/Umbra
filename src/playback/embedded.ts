@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process';
-import { createReadStream } from 'node:fs';
+import { createReadStream, type ReadStream } from 'node:fs';
 import { readdir, stat, lstat, realpath } from 'node:fs/promises';
 import { Readable } from 'node:stream';
 import { randomUUID } from 'node:crypto';
@@ -24,6 +24,7 @@ export class EmbeddedPlayer {
   private starting = false;
   private external = new Map<number,string>();
   private converters = new Set<ChildProcess>();
+  private files = new Set<ReadStream>();
   constructor(private changed: (state: PlayerState) => void) {}
   private publish() { this.changed({ ...this.state,tracks: [...this.state.tracks] }); }
   async play(store: Store,id: string,restart = false) {
@@ -61,6 +62,7 @@ export class EmbeddedPlayer {
   }
   private source() {
     this.killConverters();
+    for (const stream of this.files) stream.destroy();
     const file = this.file!;
     const audio = this.state.tracks.filter(track => track.type === 'audio');
     const subtitle = this.state.tracks.find(track => track.type === 'subtitle' && track.id === this.state.subtitle);
@@ -114,10 +116,13 @@ export class EmbeddedPlayer {
   async stop() {
     this.save(true);
     // Release video handles before callers move or delete files, including on Windows.
-    await Promise.all([...this.converters].map(child => new Promise<void>(resolve => {
+    await Promise.all([...this.files].map(stream => new Promise<void>(resolve => {
+      if (stream.closed) { resolve(); return; }
+      stream.once('close',() => resolve()); stream.destroy();
+    })).concat([...this.converters].map(child => new Promise<void>(resolve => {
       if (child.exitCode !== null || child.signalCode !== null) { resolve(); return; }
       child.once('close',() => resolve()); child.kill('SIGKILL');
-    })));
+    }))));
     this.store = undefined; this.file = undefined; this.session = undefined; this.external.clear(); this.absolute = '';
     this.state = emptyPlayer(); this.publish();
   }
@@ -144,7 +149,14 @@ export class EmbeddedPlayer {
         else start = Math.max(0,size-Number(match[2]));
         if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start > end || start >= size) return new Response('',{ status: 416,headers: { 'content-range': `bytes */${size}` } });
       }
-      return new Response(request.method === 'HEAD' ? null : Readable.toWeb(createReadStream(this.absolute,{ start,end })) as ReadableStream,{ status: range ? 206 : 200,headers: { ...headers,'content-type': mime,'accept-ranges': 'bytes','content-length': String(end-start+1),...(range ? { 'content-range': `bytes ${start}-${end}/${size}` } : {}) } });
+      let body: ReadableStream | null = null;
+      if (request.method !== 'HEAD') {
+        const stream = createReadStream(this.absolute,{ start,end }); this.files.add(stream);
+        const cancel = () => stream.destroy(); request.signal.addEventListener('abort',cancel,{ once: true });
+        stream.once('close',() => { this.files.delete(stream); request.signal.removeEventListener('abort',cancel); });
+        body = Readable.toWeb(stream) as ReadableStream;
+      }
+      return new Response(body,{ status: range ? 206 : 200,headers: { ...headers,'content-type': mime,'accept-ranges': 'bytes','content-length': String(end-start+1),...(range ? { 'content-range': `bytes ${start}-${end}/${size}` } : {}) } });
     }
     if (url.pathname === `/${source.token}/stream.mp4` && source.mode === 'stream') {
       if (request.method === 'HEAD') return new Response(null,{ headers: { ...headers,'content-type': mime } });
