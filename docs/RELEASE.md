@@ -6,6 +6,7 @@ Tela cheia corrigida e legendas personalizáveis no Umbra.
 - F11 e dois cliques alternam tela cheia; Esc sai. Minimizar retorna à janela da biblioteca.
 - Legendas de texto sobem enquanto os controles estão visíveis.
 - Novo painel **Ajustar legenda** com tamanho, cor, fundo, contorno e altura. Preferências salvas no computador para as próximas sessões; ajustes se aplicam às legendas de texto.
+- Ao buscar ou encerrar um vídeo, requisições atrasadas da sessão anterior são canceladas sem gerar um erro falso de arquivo ausente.
 
 ### Windows x64
 

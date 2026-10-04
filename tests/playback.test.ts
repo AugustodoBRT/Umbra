@@ -17,9 +17,12 @@ test('embedded playback: conversion, seek, session persistence, stale reports an
     const response = await player.response(new Request(first.url));
     const converted = Buffer.from(await response.arrayBuffer()); assert.ok(converted.length > 1000); assert.equal(converted.toString('ascii',4,8),'ftyp');
     await player.control('pause'); await player.control('seek',2);
+    const retired = await player.response(new Request(first.url)); assert.equal(retired.status,204); assert.equal(await retired.text(),'');
     await player.report(first.token,4,false); assert.equal(player.state.position,2);
     await player.control('volume',30); await player.control('speed',2);
+    const stopped = player.state.source!;
     await player.stop(); assert.ok(store.file(file.id).position >= 1.9);
+    assert.equal((await player.response(new Request(stopped.url))).status,204);
     await player.play(store,file.id); assert.equal(player.state.position,2);
     await player.report(player.state.source!.token,5,true);
     assert.equal(player.state.active,false); assert.ok(store.file(file.id).completed);

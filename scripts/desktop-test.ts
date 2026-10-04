@@ -17,7 +17,7 @@ async function launch() {
   runtime = await electron.launch({ executablePath: process.env.CINESSD_ELECTRON || '/usr/bin/electron',args: [path.resolve('.'),'--password-store=basic'],env: Object.fromEntries(Object.entries({ ...process.env,CINESSD_DATA_DIR: config }).filter(([key]) => key.toUpperCase() !== 'ELECTRON_RUN_AS_NODE')),timeout: 30000 });
   const page = await runtime.firstWindow();
   page.on('pageerror',error => logs.push(error.message));
-  page.on('console',message => { if (message.type() === 'error') logs.push(message.text()); });
+  page.on('console',message => { if (message.type() === 'error') logs.push(`${message.text()} ${message.location().url}`.trim()); });
   await page.getByRole('button',{ name: 'Umbra, início' }).waitFor();
   await page.getByRole('button',{ name: 'Início',exact: true }).click();
   await page.getByRole('heading',{ name: 'Seu próximo play começa aqui.' }).waitFor();

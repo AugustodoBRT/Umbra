@@ -25,6 +25,7 @@ export class EmbeddedPlayer {
   private external = new Map<number,string>();
   private converters = new Set<ChildProcess>();
   private files = new Set<ReadStream>();
+  private retiredSources = new Set<string>();
   constructor(private changed: (state: PlayerState) => void) {}
   private publish() { this.changed({ ...this.state,tracks: [...this.state.tracks] }); }
   setFullscreen(fullscreen: boolean) {
@@ -65,6 +66,7 @@ export class EmbeddedPlayer {
     finally { this.starting = false; }
   }
   private source() {
+    this.retireSource();
     this.killConverters();
     for (const stream of this.files) stream.destroy();
     const file = this.file!;
@@ -117,7 +119,15 @@ export class EmbeddedPlayer {
     if (this.state.error) throw new Error(this.state.error);
   }
   private killConverters() { for (const child of this.converters) child.kill('SIGKILL'); }
+  private retireSource() {
+    const source = this.state.source;
+    if (!source) return;
+    this.retiredSources.add(source.url);
+    if (source.subtitleUrl) this.retiredSources.add(source.subtitleUrl);
+    while (this.retiredSources.size > 32) this.retiredSources.delete(this.retiredSources.values().next().value!);
+  }
   async stop() {
+    this.retireSource();
     this.save(true);
     // Release video handles before callers move or delete files, including on Windows.
     await Promise.all([...this.files].map(stream => new Promise<void>(resolve => {
@@ -138,10 +148,14 @@ export class EmbeddedPlayer {
   }
   async response(request: Request): Promise<Response> {
     const url = new URL(request.url); const source = this.state.source;
+    const headers = { 'cache-control': 'no-store','x-content-type-options': 'nosniff','access-control-allow-origin': request.headers.get('origin') === 'http://127.0.0.1:5173' ? 'http://127.0.0.1:5173' : 'cinessd://app' };
+    // A seek or stop can overtake a queued renderer request. Cancel that known
+    // source without treating it as a missing video or reopening its handles.
+    if (['GET','HEAD'].includes(request.method) && this.retiredSources.has(url.href)) return new Response(null,{ status: 204,headers });
     if (!source || !this.store || !this.state.active || !['GET','HEAD'].includes(request.method) || !url.pathname.startsWith(`/${source.token}/`)) return new Response('',{ status: 404 });
     await this.store.assertDisk();
+    if (this.retiredSources.has(url.href)) return new Response(null,{ status: 204,headers });
     if (this.state.source?.token !== source.token) return new Response('',{ status: 404 });
-    const headers = { 'cache-control': 'no-store','x-content-type-options': 'nosniff','access-control-allow-origin': request.headers.get('origin') === 'http://127.0.0.1:5173' ? 'http://127.0.0.1:5173' : 'cinessd://app' };
     if (url.pathname === `/${source.token}/file.mp4` && source.mode === 'file') {
       const size = (await stat(this.absolute)).size;
       const range = request.headers.get('range');

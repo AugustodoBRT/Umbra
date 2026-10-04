@@ -47,7 +47,7 @@ export function Player({ state,run,subtitleAppearance }: { state: PlayerState; r
     if (!source) return;
     let alive = true; const abort = new AbortController(); let objectURL = '';
     setLoading(true); setError('');
-    const failed = () => { if (alive) { setError('Não foi possível reproduzir este vídeo. Confira o arquivo e o FFmpeg nas configurações.'); void window.cine.playbackReport(source.token,latest.current.position,false,true); } };
+    const failed = () => { if (alive && latest.current.active && latest.current.source?.token === source.token) { setError('Não foi possível reproduzir este vídeo. Confira o arquivo e o FFmpeg nas configurações.'); void window.cine.playbackReport(source.token,latest.current.position,false,true); } };
     element.addEventListener('error',failed);
     const activateCue = () => {
       if (alive && latest.current.paused && element.currentTime === 0 && element.readyState >= 2 && element.textTracks[0]?.cues?.length) {
@@ -67,6 +67,7 @@ export function Player({ state,run,subtitleAppearance }: { state: PlayerState; r
       const media = new MediaSource(); objectURL = URL.createObjectURL(media); element.src = objectURL;
       media.addEventListener('sourceopen',() => {
         void (async () => {
+          if (!alive || abort.signal.aborted) return;
           if (!MediaSource.isTypeSupported(streamType)) throw new Error('Codec indisponível.');
           const buffer = media.addSourceBuffer(streamType);
           const append = (value: Uint8Array) => new Promise<void>((resolve,reject) => {
@@ -76,6 +77,7 @@ export function Player({ state,run,subtitleAppearance }: { state: PlayerState; r
             buffer.appendBuffer(new Uint8Array(value));
           });
           const response = await fetch(source.url,{ signal: abort.signal });
+          if (response.status === 204) return;
           if (!response.ok || !response.body) throw new Error('Vídeo indisponível.');
           const reader = response.body.getReader();
           while (alive) {
