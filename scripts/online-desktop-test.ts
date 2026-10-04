@@ -65,7 +65,11 @@ try {
   await tracks.getByRole('button',{ name: '+1 idiomas',exact: true }).click();
   assert.ok(await tracks.getByText('Japonês',{ exact: true }).isVisible());
   assert.ok(await page.locator('.source-flag').evaluateAll(images => images.every(image => (image as HTMLImageElement).complete && (image as HTMLImageElement).naturalWidth > 0)));
-  await page.getByRole('button',{ name: 'Minha lista online',exact: true }).last().click(); await page.getByLabel('Minha nota online').selectOption('8.5');
+  await page.getByRole('button',{ name: 'Minha lista online',exact: true }).last().click();
+  // Wait for the asynchronous save and its UI update before editing another field.
+  await page.getByRole('button',{ name: 'Na minha lista online',exact: true }).waitFor();
+  await page.getByLabel('Minha nota online').selectOption('8.5');
+  await until(async () => { const saved = await page.evaluate(() => window.cine.onlineSaved()); return saved[0]?.personal.rating === 8.5 && saved[0].personal.watchlist; });
   if (await page.getByRole('button',{ name: 'Fechar aviso',exact: true }).isVisible()) await page.getByRole('button',{ name: 'Fechar aviso',exact: true }).click();
   await page.locator('.source-card').screenshot({ animations: 'disabled',path: path.join(output,'14-detalhes-fonte.png') });
   await page.screenshot({ animations: 'disabled',fullPage: true,path: path.join(output,'11-fontes-download.png') });
