@@ -1,0 +1,110 @@
+{
+  "name": "cinessd",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Seu cinema, onde você estiver. Biblioteca pessoal e portátil de filmes e séries.",
+  "license": "MIT",
+  "type": "module",
+  "main": "dist/main/main.cjs",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "npm run check-types && node scripts/build.mjs",
+    "start": "node scripts/start.mjs",
+    "check-types": "tsc --noEmit",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "test:desktop": "node --import tsx scripts/desktop-test.ts",
+    "test:online": "node --import tsx scripts/online-desktop-test.ts",
+    "package:linux": "npm run build && electron-builder --linux dir",
+    "prepare:windows": "node scripts/prepare-windows.mjs && node scripts/build-torrent-worker.mjs",
+    "package:windows": "npm run build && electron-builder --win nsis portable --x64 --publish never",
+    "test:player": "node --import tsx scripts/player-desktop-test.ts",
+    "test:windows": "node --import tsx scripts/windows-smoke-test.ts"
+  },
+  "dependencies": {
+    "lucide-react": "^1.40.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.6",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "electron": "44.5.1",
+    "electron-builder": "^26.0.0",
+    "esbuild": "^0.28.0",
+    "playwright": "^1.61.1",
+    "tsx": "^4.23.15",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.0"
+  },
+  "build": {
+    "appId": "io.cinessd.desktop",
+    "productName": "Umbra",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "package.json",
+      "LICENSE",
+      "THIRD_PARTY.md"
+    ],
+    "linux": {
+      "target": [
+        "dir"
+      ],
+      "category": "AudioVideo",
+      "icon": "assets/icon.svg"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.ico",
+      "artifactName": "Umbra-${version}-${arch}-${target}.${ext}",
+      "extraResources": [
+        {
+          "from": "packaging/windows/bin",
+          "to": "bin"
+        },
+        {
+          "from": "packaging/windows/licenses",
+          "to": "licenses/media"
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": false,
+      "license": "LICENSE",
+      "shortcutName": "Umbra"
+    },
+    "portable": {
+      "artifactName": "Umbra-${version}-x64-portable.exe"
+    }
+  },
+  "homepage": "https://github.com/AugustodoBRT/Umbra",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AugustodoBRT/Umbra.git"
+  },
+  "author": "AugustodoBRT"
+}

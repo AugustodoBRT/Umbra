@@ -1,0 +1,5 @@
+/* Local fonts keep the identity available offline; each family has a system fallback. */
+@font-face{font-family:'Umbra Sans';src:local('Inter'),local('Inter Variable'),local('Noto Sans');font-display:swap;font-weight:100 900}
+@font-face{font-family:'Umbra Editorial';src:local('Liberation Serif'),local('Noto Serif'),local('FreeSerif');font-display:swap;font-weight:400;font-style:normal}
+@font-face{font-family:'Umbra Editorial';src:local('Liberation Serif Italic'),local('Noto Serif Italic'),local('FreeSerif Italic');font-display:swap;font-weight:400;font-style:italic}
+@font-face{font-family:'Umbra Mono';src:local('Adwaita Mono'),local('Liberation Mono');font-display:swap;font-weight:400}

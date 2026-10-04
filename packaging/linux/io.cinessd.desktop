@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Umbra
+GenericName=Biblioteca de filmes e séries
+Comment=Seu cinema, onde você estiver
+Exec=umbra
+Icon=umbra
+Terminal=false
+Categories=AudioVideo;Video;Player;
+Keywords=Umbra;Cinema;Filmes;Séries;Series;Vídeos;Videos;
+StartupNotify=true

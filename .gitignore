@@ -1,0 +1,15 @@
+node_modules/
+dist/
+release/
+.local/
+test-results/
+*.log
+*.sqlite*
+.env*
+packaging/windows/bin/
+packaging/windows/cache/
+packaging/windows/licenses/
+packaging/windows/worker-build/
+packaging/windows/worker-dist/
+Biblioteca/
+*.partial

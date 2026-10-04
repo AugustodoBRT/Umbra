@@ -1,0 +1,10 @@
+import { build } from 'esbuild';
+import { build as viteBuild } from 'vite';
+import { copyFile, mkdir } from 'node:fs/promises';
+await build({ entryPoints: ['src/main/main.ts'], bundle: true, platform: 'node', format: 'cjs', target: 'node24', outfile: 'dist/main/main.cjs', external: ['electron'], sourcemap: true });
+await build({ entryPoints: ['src/main/preload.ts'], bundle: true, platform: 'node', format: 'cjs', target: 'node24', outfile: 'dist/main/preload.cjs', external: ['electron'] });
+await viteBuild();
+await copyFile('assets/icon.svg','dist/icon.svg');
+await copyFile('src/downloads/torrent-worker.py','dist/torrent-worker.py');
+await mkdir('dist/licenses',{ recursive: true });
+await copyFile('src/renderer/flags/LICENSE','dist/licenses/flag-icons-MIT.txt');
