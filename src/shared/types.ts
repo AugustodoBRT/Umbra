@@ -15,7 +15,7 @@ export interface ScanProgress { running: boolean; phase: 'discovering' | 'inspec
 export interface PlayerState { active: boolean; fileId: string | null; title: string; position: number; duration: number; paused: boolean; volume: number; speed: number; tracks: MediaTrack[]; audio: number | string; subtitle: number | string; fullscreen: boolean; error?: string; source?: { token: string; mode: 'file'|'stream'; url: string; start: number; subtitleUrl?: string } }
 export interface Candidate { id: number; kind: 'movie' | 'series'; title: string; originalTitle: string; year: number | null; overview: string; poster: string | null; confidence: number }
 export interface CustomList { id: string; name: string; workIds: string[] }
-export interface Settings { tmdbConfigured: boolean; omdbConfigured: boolean; secureStorage: boolean; credentialStorage: 'system'|'local'; completedPercent: number; hideSpoilers: boolean; autoScan: boolean; reopenLastLibrary: boolean; diagnostics: { ffprobe: boolean; ffmpeg: boolean; platform: string; electron: string } }
+export interface Settings { tmdbConfigured: boolean; omdbConfigured: boolean; secureStorage: boolean; credentialStorage: 'system'|'local'; completedPercent: number; hideSpoilers: boolean; autoScan: boolean; reopenLastLibrary: boolean; subtitleAppearance: import('./subtitles').SubtitleAppearance; diagnostics: { ffprobe: boolean; ffmpeg: boolean; platform: string; electron: string } }
 export interface IdentificationProgress { running: boolean; total: number; processed: number; matched: number; pending: number; errors: string[]; candidates: Record<string,Candidate[]> }
 export interface Snapshot { library: LibraryInfo | null; works: Work[]; history: WatchedHistory[]; lists: CustomList[]; scan: ScanProgress; player: PlayerState; settings: Settings; identification: IdentificationProgress; error?: string }
 export type Event = { type: 'changed' } | { type: 'downloads' } | { type: 'scan'; data: ScanProgress } | { type: 'player'; data: PlayerState } | { type: 'identification'; data: IdentificationProgress } | { type: 'disconnected'; message: string };
@@ -57,6 +57,7 @@ export interface API {
   enrich(): Promise<{ matched: number; pending: number }>;
   saveKeys(tmdb: string | null, omdb: string | null): Promise<void>;
   settings(value: { completedPercent: number; hideSpoilers: boolean; autoScan: boolean; reopenLastLibrary?: boolean }): Promise<void>;
+  subtitleAppearance(value: import('./subtitles').SubtitleAppearance): Promise<void>;
   backup(): Promise<string>;
   exportData(): Promise<string | null>;
   list(action: 'create' | 'rename' | 'delete' | 'add' | 'remove' | 'move', nameOrId: string, value?: string): Promise<void>;

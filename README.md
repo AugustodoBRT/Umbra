@@ -15,7 +15,7 @@
 
 ## O que tem no Umbra
 
-- **Player integrado:** pausa, busca, áudio, legendas embutidas ou próximas ao vídeo, volume, velocidade, tela cheia e retomada.
+- **Player integrado:** pausa, busca, áudio, legendas embutidas ou próximas ao vídeo, volume, velocidade, tela cheia com controles que somem e retomada. Personalize tamanho, cor, fundo, contorno e posição das legendas de texto.
 - **Uma biblioteca sua:** pastas locais ou SSD externo, importação por seletor, filmes, temporadas, episódios, busca e filtros.
 - **Metadados em português:** sinopses e gêneros via TMDB, mantendo títulos originais. Configure sua chave no app; a coleção funciona sem ela.
 - **Seu registro de cinema:** notas, resenhas, favoritos, listas e histórico de assistidos.

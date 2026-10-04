@@ -1,6 +1,6 @@
 import { _electron as electron } from 'playwright';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, rm, stat } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, rm, stat } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -41,12 +41,63 @@ try {
   assert.match(await page.evaluate(() => (document.querySelector('video')!.textTracks[0].activeCues![0] as VTTCue).text),/Uma sessão dentro/);
   await page.evaluate(() => window.cine.control('volume',35)); await page.getByRole('combobox',{ name: 'Velocidade' }).selectOption('1.5');
   await page.waitForFunction(() => { const v = document.querySelector('video'); return v?.volume === .35 && v.playbackRate === 1.5 && v.paused; });
-  await page.getByRole('button',{ name: 'Tela cheia do player' }).click(); assert.equal(await runtime.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isFullScreen()),true);
+  await page.getByRole('button',{ name: 'Ajustar legenda' }).click();
+  await page.getByRole('slider',{ name: 'Tamanho da legenda' }).fill('36');
+  await page.getByLabel('Cor da legenda',{ exact: true }).fill('#ffe066');
+  await page.getByRole('combobox',{ name: 'Fundo da legenda' }).selectOption('none');
+  await page.getByRole('checkbox',{ name: 'Contorno escuro' }).uncheck();
+  await page.getByRole('slider',{ name: 'Altura da legenda' }).fill('12');
+  await page.screenshot({ animations: 'disabled',path: 'test-results/23-subtitle-settings.png' });
+  await page.getByRole('button',{ name: 'Fechar ajustes de legenda' }).click();
+  const appearance = { fontSize: 36,color: '#ffe066',background: 'none',outline: false,bottom: 12 };
+  await until(async () => JSON.stringify((await page.evaluate(() => window.cine.snapshot())).settings.subtitleAppearance) === JSON.stringify(appearance));
+  assert.deepEqual(JSON.parse(await readFile(path.join(config,'library.json'),'utf8')).subtitleAppearance,appearance);
+  assert.match(await page.locator('[data-subtitle-appearance]').textContent() ?? '',/font-size: 36px; color: #ffe066; background-color: transparent; text-shadow: none/);
+  assert.equal(await page.evaluate(() => (document.querySelector('video')!.textTracks[0].activeCues![0] as VTTCue).line),88);
+  await page.screenshot({ animations: 'disabled',path: 'test-results/22-subtitle-appearance.png' });
   await page.getByRole('button',{ name: 'Tela cheia do player' }).click();
+  await until(() => runtime!.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isFullScreen()));
+  await page.waitForFunction(() => document.querySelector('.embedded-player')?.classList.contains('fullscreen'));
+  const fullscreenLayout = await page.evaluate(() => {
+    const video = document.querySelector('video')!.getBoundingClientRect();
+    return { x: video.x,y: video.y,width: video.width,height: video.height,viewportWidth: innerWidth,viewportHeight: innerHeight,documentWidth: document.documentElement.clientWidth,overflow: getComputedStyle(document.documentElement).overflow };
+  });
+  assert.equal(fullscreenLayout.x,0); assert.equal(fullscreenLayout.y,0);
+  assert.equal(fullscreenLayout.width,fullscreenLayout.viewportWidth); assert.equal(fullscreenLayout.height,fullscreenLayout.viewportHeight);
+  assert.equal(fullscreenLayout.documentWidth,fullscreenLayout.viewportWidth); assert.equal(fullscreenLayout.overflow,'hidden');
+  await page.screenshot({ animations: 'disabled',path: 'test-results/20-fullscreen-controls.png' });
+  // A stationary pointer on a focused control must hide the overlay even while paused.
+  await page.getByRole('button',{ name: 'Reproduzir',exact: true }).focus();
+  await page.getByRole('button',{ name: 'Tela cheia do player' }).hover();
+  await page.waitForFunction(() => document.querySelector('.embedded-player')?.classList.contains('controls-hidden'),{},{ timeout: 7000 });
+  await page.waitForFunction(() => getComputedStyle(document.querySelector('.embedded-player-controls')!).opacity === '0');
+  await page.screenshot({ animations: 'disabled',path: 'test-results/21-fullscreen-video.png' });
+  await page.mouse.move(fullscreenLayout.viewportWidth/2+30,fullscreenLayout.viewportHeight/2);
+  await page.waitForFunction(() => !document.querySelector('.embedded-player')?.classList.contains('controls-hidden'));
+  assert.equal((await page.evaluate(() => window.cine.snapshot())).player.paused,true);
+  await page.getByRole('button',{ name: 'Reproduzir',exact: true }).click();
+  await page.mouse.move(fullscreenLayout.viewportWidth/2,fullscreenLayout.viewportHeight/2);
+  await page.waitForFunction(() => document.querySelector('.embedded-player')?.classList.contains('controls-hidden'),{},{ timeout: 7000 });
+  // Leaving the player hides its chrome immediately; re-entering reveals it.
+  await page.mouse.move(fullscreenLayout.viewportWidth/2+60,fullscreenLayout.viewportHeight/2);
+  await page.locator('.embedded-player').dispatchEvent('pointerout',{ relatedTarget: null });
+  await page.waitForFunction(() => document.querySelector('.embedded-player')?.classList.contains('controls-hidden'),{},{ timeout: 1000 });
+  await page.mouse.move(fullscreenLayout.viewportWidth/2+90,fullscreenLayout.viewportHeight/2);
+  await page.getByRole('button',{ name: 'Pausar',exact: true }).click();
+  await page.keyboard.press('Escape');
+  await until(async () => !(await runtime!.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isFullScreen())));
+  await page.keyboard.press('F11');
+  await until(() => runtime!.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isFullScreen()));
+  assert.equal(await page.evaluate(() => document.fullscreenElement),null);
+  // Minimizing leaves native fullscreen and restores the library's normal scrolling.
+  await page.getByRole('button',{ name: 'Minimizar player' }).click();
+  await until(async () => !(await runtime!.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isFullScreen())));
+  assert.notEqual(await page.evaluate(() => getComputedStyle(document.documentElement).overflow),'hidden');
+  await page.getByRole('button',{ name: 'Expandir player' }).click();
   await page.screenshot({ animations: 'disabled',path: 'test-results/19-player-integrado.png' });
   await page.getByRole('button',{ name: 'Minimizar player' }).click(); await page.getByRole('button',{ name: 'Filmes',exact: false }).first().click(); await page.getByRole('button',{ name: 'Expandir player' }).click();
   await page.getByRole('button',{ name: 'Encerrar reprodução' }).click(); snapshot = await page.evaluate(() => window.cine.snapshot()); assert.ok(snapshot.works.find(x => x.files.some(f => f.id === file.id))!.files[0].position >= 5);
-  await page.evaluate(id => window.cine.play(id),file.id); snapshot = await page.evaluate(() => window.cine.snapshot()); assert.equal(snapshot.player.audio,audio[1].id); assert.ok(snapshot.player.position >= 5); assert.notEqual(snapshot.player.subtitle,'no'); await page.evaluate(() => window.cine.control('stop'));
+  await page.evaluate(id => window.cine.play(id),file.id); snapshot = await page.evaluate(() => window.cine.snapshot()); assert.equal(snapshot.player.audio,audio[1].id); assert.ok(snapshot.player.position >= 5); assert.notEqual(snapshot.player.subtitle,'no'); assert.deepEqual(snapshot.settings.subtitleAppearance,appearance); await page.evaluate(() => window.cine.control('stop'));
   const native = snapshot.works.find(x => x.title.includes('Direta'))!.files[0]; await page.evaluate(id => window.cine.play(id),native.id);
   await page.waitForFunction(() => { const v = document.querySelector('video'); return v && v.videoWidth > 0 && v.currentTime > 1; },{},{ timeout: 30000 });
   assert.equal((await page.evaluate(() => window.cine.snapshot())).player.source?.mode,'file');
@@ -56,7 +107,7 @@ try {
   await page.evaluate(id => window.cine.play(id),file.id); await page.waitForFunction(() => document.querySelector('video')!.readyState >= 2,{},{ timeout: 30000 });
   const work = (await page.evaluate(() => window.cine.snapshot())).works.find(x => x.files.some(f => f.id === file.id))!;
   await page.evaluate(id => window.cine.removeWork(id),work.id); await assert.rejects(stat(path.join(root,file.path)),{ code: 'ENOENT' });
-  assert.deepEqual(errors,[]); console.log('PLAYER OK: native MP4, MKV conversion, two audio tracks, embedded subtitles, seek, pause, volume, speed, fullscreen, resume and deletion.');
+  assert.deepEqual(errors,[]); console.log('PLAYER OK: native MP4, MKV conversion, two audio tracks, embedded subtitles, seek, pause, volume, speed, fullscreen viewport, auto-hide while playing/paused or leaving the player, persistent subtitle appearance, Escape/F11, resume and deletion.');
 } catch (error) {
   console.error(error,errors,nativeLogs);
   if (runtime) try {

@@ -116,3 +116,9 @@ Não exclua `catalogo.sqlite` nem journals de uma transação interrompida. Para
 ## Limitações do player
 
 A conversão de formatos incompatíveis gera H.264/AAC em memória, com saída até 1080p, sem modificar o original. Pode exigir mais CPU; HDR, passthrough multicanal e tipografia/efeitos de legendas ASS não têm fidelidade garantida. Não há autoplay do próximo episódio.
+
+## Tela cheia
+
+Clique no botão de tela cheia, dê dois cliques no vídeo ou pressione F11. O vídeo ocupa toda a tela, preservando a proporção original. Cabeçalho, controles e cursor somem após 2,5 segundos sem interação, inclusive com o vídeo pausado. Ao tirar o mouse do player, os controles somem imediatamente. Mova o mouse ou use Tab para revelá-los. Esc sai da tela cheia; minimizar também devolve a janela à biblioteca. A rolagem da biblioteca permanece disponível no modo minimizado.
+
+Use **Ajustar legenda**, ao lado da escolha de faixa, para alterar tamanho, cor, fundo, contorno e altura. A mudança aparece no vídeo e as preferências ficam salvas neste computador para as próximas sessões. Enquanto esse painel estiver aberto, os controles ficam visíveis para permitir a edição; feche-o para voltar ao desaparecimento automático. **Restaurar padrão** recupera a aparência inicial. Esses ajustes funcionam com legendas de texto; legendas em imagem mantêm a aparência original.

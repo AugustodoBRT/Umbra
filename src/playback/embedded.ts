@@ -27,6 +27,10 @@ export class EmbeddedPlayer {
   private files = new Set<ReadStream>();
   constructor(private changed: (state: PlayerState) => void) {}
   private publish() { this.changed({ ...this.state,tracks: [...this.state.tracks] }); }
+  setFullscreen(fullscreen: boolean) {
+    if (!this.state.active || this.state.fullscreen === fullscreen) return;
+    this.state.fullscreen = fullscreen; this.publish();
+  }
   async play(store: Store,id: string,restart = false) {
     if (this.starting) throw new Error('O player está sendo iniciado.');
     this.starting = true;

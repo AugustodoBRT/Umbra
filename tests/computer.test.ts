@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto';
 import { Credentials, type SystemCipher } from '../src/storage/credentials';
 import { loadComputerConfig, saveComputerConfig, rememberedManifest } from '../src/storage/computer';
 import { library } from './helpers';
+import { defaultSubtitleAppearance } from '../src/shared/subtitles';
 const unavailable: SystemCipher = { available: () => false,encrypt: () => { throw new Error('Indisponível'); },decrypt: () => { throw new Error('Indisponível'); } };
 test('chaves persistem entre instâncias sem cofre do sistema, criptografadas e privadas',async () => {
   const directory = await mkdtemp(path.join(tmpdir(),'cinessd-credentials-'));
@@ -59,4 +60,16 @@ test('lembra seleção antiga e verifica identidade sem criar biblioteca quando 
     const absent = path.join(computer,'SSD-ausente'); await assert.rejects(rememberedManifest({ ...config,lastRoot: absent }));
     await assert.rejects(stat(absent),{ code: 'ENOENT' });
   } finally { await store.close(); await rm(root,{ recursive: true,force: true }); await rm(computer,{ recursive: true,force: true }); }
+});
+test('preferências de legenda persistem no computador sem biblioteca conectada',async () => {
+  const directory = await mkdtemp(path.join(tmpdir(),'umbra-subtitle-settings-'));
+  try {
+    const old = await loadComputerConfig(directory);
+    assert.equal(old.subtitleAppearance,undefined);
+    const appearance = { ...defaultSubtitleAppearance,fontSize: 36,color: '#ffe066',bottom: 12 };
+    await saveComputerConfig(directory,{ ...old,subtitleAppearance: appearance });
+    assert.deepEqual((await loadComputerConfig(directory)).subtitleAppearance,appearance);
+    await assert.rejects(saveComputerConfig(directory,{ ...old,subtitleAppearance: { ...appearance,fontSize: 0 } }));
+    assert.deepEqual((await loadComputerConfig(directory)).subtitleAppearance,appearance);
+  } finally { await rm(directory,{ recursive: true,force: true }); }
 });

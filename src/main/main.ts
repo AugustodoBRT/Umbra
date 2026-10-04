@@ -17,6 +17,7 @@ import { Providers, emptyIdentification } from '../metadata/providers';
 import { existingPath, resolvePath, relativePath } from '../library/paths';
 import { removeWork as removeLocalWork } from '../library/removal';
 import { idSchema, personalSchema, editSchema, candidateSchema, settingsSchema } from '../shared/validation';
+import { defaultSubtitleAppearance, subtitleAppearanceSchema } from '../shared/subtitles';
 import type { Snapshot, Event, Settings, LibraryInfo, RemovalResult } from '../shared/types';
 
 protocol.registerSchemesAsPrivileged([{ scheme: 'cinessd', privileges: { standard: true, secure: true, supportFetchAPI: true,stream: true,corsEnabled: true } }]);
@@ -51,7 +52,7 @@ const scanner = new Scanner(data => { emit({ type: 'scan',data }); if (!data.run
 const player = new EmbeddedPlayer(data => { emit({ type: 'player',data }); if (!data.active) { if (window?.isFullScreen()) window.setFullScreen(false); emit({ type: 'changed' }); } });
 let diagnostic = { ffprobe: false, ffmpeg: false, platform: process.platform, electron: process.versions.electron };
 function secureStorage() { return safeStorage.isEncryptionAvailable() && (process.platform !== 'linux' || safeStorage.getSelectedStorageBackend() !== 'basic_text'); }
-function settings(): Settings { return { tmdbConfigured: !!providers.tmdb, omdbConfigured: !!providers.omdb, secureStorage: secureStorage(), credentialStorage: credentials?.backend ?? 'local',reopenLastLibrary: computer.reopenLastLibrary,completedPercent: store?.setting('completedPercent',90) ?? 90, hideSpoilers: store?.setting('hideSpoilers',true) ?? true, autoScan: store?.setting('autoScan',true) ?? true, diagnostics: diagnostic }; }
+function settings(): Settings { return { tmdbConfigured: !!providers.tmdb, omdbConfigured: !!providers.omdb, secureStorage: secureStorage(), credentialStorage: credentials?.backend ?? 'local',reopenLastLibrary: computer.reopenLastLibrary,subtitleAppearance: computer.subtitleAppearance ?? defaultSubtitleAppearance,completedPercent: store?.setting('completedPercent',90) ?? 90, hideSpoilers: store?.setting('hideSpoilers',true) ?? true, autoScan: store?.setting('autoScan',true) ?? true, diagnostics: diagnostic }; }
 function snapshot(): Snapshot {
   let library: LibraryInfo | null = null;
   if (store && !store.closed) library = { id: store.manifest.id,name: store.manifest.name,root: store.root,connected: true,sources: store.sources(),size: store.rows().filter(x => x.available).reduce((sum,x) => sum+x.size,0) };
@@ -235,6 +236,10 @@ function handlers() {
     if (store) { const current = await requireStore(); current.transaction(() => { for (const [key,val] of Object.entries(parsed)) if (key !== 'reopenLastLibrary') current.setSetting(key,val); }); }
     emit({ type: 'changed' });
   });
+  register('subtitleAppearance',async value => {
+    computer = { ...computer,subtitleAppearance: subtitleAppearanceSchema.parse(value) };
+    await localConfig(); emit({ type: 'changed' });
+  });
   register('backup',async () => (await requireStore()).backup(),true);
   register('exportData',async () => {
     const current = await requireStore(); const data = current.exportData();
@@ -308,6 +313,8 @@ async function ready() {
   window = new BrowserWindow({ width: 1440,height: 920,minWidth: 960,minHeight: 640,title: 'Umbra',backgroundColor: '#090b09',icon: path.join(__dirname,'../icon.svg'),autoHideMenuBar: true,webPreferences: { preload: path.join(__dirname,'preload.cjs'),contextIsolation: true,nodeIntegration: false,sandbox: true,autoplayPolicy: 'no-user-gesture-required' } });
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   window.webContents.on('will-navigate',event => event.preventDefault());
+  window.on('enter-full-screen',() => player.setFullscreen(true));
+  window.on('leave-full-screen',() => player.setFullscreen(false));
   handlers();
   const url = process.env.CINESSD_DEV_URL;
   if (url === 'http://127.0.0.1:5173') await window.loadURL(url); else await window.loadURL('cinessd://app/index.html');

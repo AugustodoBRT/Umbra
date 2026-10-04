@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 import type { API, Event } from '../shared/types';
 const invoke = (name: string, ...args: unknown[]) => ipcRenderer.invoke(`cine:${name}`,...args);
 const api: API = {
+  subtitleAppearance: value => invoke('subtitleAppearance',value),
   addons: () => invoke('addons'),installAddon: url => invoke('installAddon',url),addon: (action,id) => invoke('addon',action,id),configureAddon: id => invoke('configureAddon',id),
   onlineCatalog: (...args) => invoke('onlineCatalog',...args),onlineMeta: (...args) => invoke('onlineMeta',...args),onlineSources: (...args) => invoke('onlineSources',...args),onlinePersonal: (...args) => invoke('onlinePersonal',...args),onlineSaved: () => invoke('onlineSaved'),
   planSeason: (...args) => invoke('planSeason',...args),downloadSource: id => invoke('downloadSource',id),downloadSeason: (...args) => invoke('downloadSeason',...args),downloads: () => invoke('downloads'),downloadControl: (...args) => invoke('downloadControl',...args),chooseDownloadFolder: () => invoke('chooseDownloadFolder'),
