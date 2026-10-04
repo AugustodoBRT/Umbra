@@ -23,10 +23,14 @@ Marca reformulada com símbolo de abertura de projetor de seis lâminas, sem let
 
 ## Verificação realizada
 
-Build de referência: [`8a73945`](https://github.com/AugustodoBRT/Umbra/commit/8a73945bfd7d0d2fb6466d558e03ef08e72b912b). [CI Linux e Windows aprovada](https://github.com/AugustodoBRT/Umbra/actions/runs/37230936376). O teste Windows abre o executável empacotado sem biblioteca anterior, conecta uma coleção temporária com nomes Unicode e verifica MP4 direto, conversão MKV, dois áudios, legendas, pausa/busca, volume, velocidade, tela cheia, retomada e exclusão durante reprodução. O worker torrent incluído passa a inspeção de disponibilidade e a publicação sem sobrescrita.
+Versão publicada: [Umbra v0.1.2](https://github.com/AugustodoBRT/Umbra/releases/tag/v0.1.2), com instalador NSIS e executável portátil x64. Build de referência: [`59ae2de`](https://github.com/AugustodoBRT/Umbra/commit/59ae2dea6a7bd43d6e53b577b33221917be71908). [CI Linux e Windows aprovada](https://github.com/AugustodoBRT/Umbra/actions/runs/37243981575). Os SHA-256 dos dois executáveis publicados conferem com `SHA256SUMS.txt`.
+
+O teste Windows abre o executável empacotado sem biblioteca anterior, confirma a versão, conecta uma coleção temporária com nomes Unicode e verifica MP4 direto, conversão MKV, dois áudios, legendas, pausa/busca, volume, velocidade, tela cheia, retomada e exclusão durante reprodução. As preferências de legenda são verificadas depois da gravação em disco. O worker torrent incluído passa a inspeção de disponibilidade e a publicação sem sobrescrita, inclusive com nomes acentuados e codificação de pipe Windows simulada como CP1252.
+
+A mesma build Windows verifica o catálogo online, downloads HTTP locais de filme e temporada em uma raiz sem as pastas Filmes/Series, criação dos diretórios, importação automática e persistência de fila/lista/nota após reiniciar. Capturas do player e dos três downloads concluídos foram inspecionadas. O README mostra o Explorar com filmes reais do Cinemeta, sem baixar seus vídeos.
 
 - `npm run build`: TypeScript e produção Electron/React aprovados.
-- `npm test`: **47 testes aprovados**, com FFmpeg/ffprobe reais e um torrent sintético servido por libtorrent local.
+- `npm test`: **48 testes aprovados**, com FFmpeg/ffprobe reais e um torrent sintético servido por libtorrent local.
 - `npm run test:desktop`: aprovado no **Electron do Arch com player dentro da própria janela**. Seletor de pasta determinístico e HTTP dos provedores simulado na automação.
 - Fluxos desktop verificados: iniciar sem biblioteca; confirmar pasta; importar; salvar nota 8,5/resenha/favorito/minha lista; reproduzir/pausar/buscar; salvar e retomar após fechar o aplicativo; reabrir automaticamente biblioteca e chaves; carregar metadados após salvar chaves; escolher outra raiz após movê-la; backup; busca/filtros; foco Ctrl+K; detectar perda da raiz e reconectar; iniciar sem SSD sem recriar catálogo; desativar reabertura mantendo chaves; cancelar a confirmação de exclusão; excluir durante reprodução preservando o progresso; excluir título não assistido sem histórico; reiniciar com histórico arquivado e avaliações preservados.
 - Capturas `test-results/01-inicio.png` a `09-reabertura-automatica.png` inspecionadas visualmente. São artefatos de teste, com título sintético, e não a biblioteca do usuário.
