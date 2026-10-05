@@ -16,21 +16,23 @@ Marca reformulada com símbolo de abertura de projetor de seis lâminas, sem let
 
 | Etapa do prompt | Estado |
 | --- | --- |
-| 1 — Núcleo Linux | Implementado e testado com mídia sintética real: projeto executável, seletor, SQLite/migrações, scanner, busca/grade, detalhes, player integrado HTML5/FFmpeg, retomada e nota/resenha persistentes |
+| 1 — Núcleo Linux | Implementado e testado com mídia sintética real: projeto executável, seletor, SQLite/migrações, scanner, busca/grade, detalhes, player nativo mpv integrado, retomada e nota/resenha persistentes |
 | 2 — Catálogo Linux | Implementação inicial: TMDB/OMDb, identificação manual/automática, imagens offline, temporadas/episódios, listas, favoritos, resenhas e interface; provedores autenticados ainda precisam de validação com chaves reais |
 | 3 — Robustez | Backup SQLite, exportação JSON, bloqueio, detecção/reconexão e testes críticos implementados; ainda requer testes em SSD exFAT real, falhas físicas e coleções grandes |
 | 4 — Windows portátil | NSIS + portable x64 gerados, ferramentas incluídas e aplicativo empacotado aprovado no Windows pelo GitHub Actions |
 
 ## Verificação realizada
 
-Versão publicada: [Umbra v0.1.2](https://github.com/AugustodoBRT/Umbra/releases/tag/v0.1.2), com instalador NSIS e executável portátil x64. Build de referência: [`59ae2de`](https://github.com/AugustodoBRT/Umbra/commit/59ae2dea6a7bd43d6e53b577b33221917be71908). [CI Linux e Windows aprovada](https://github.com/AugustodoBRT/Umbra/actions/runs/37243981575). Os SHA-256 dos dois executáveis publicados conferem com `SHA256SUMS.txt`.
+Versão publicada: [Umbra v0.1.5](https://github.com/AugustodoBRT/Umbra/releases/tag/v0.1.5), com instalador NSIS e executável portátil x64 e mpv integrado. Build de referência: [`6ecc11c`](https://github.com/AugustodoBRT/Umbra/commit/6ecc11ca53282424a11f55e80bce34e3c9f3ebea). [CI Linux e Windows aprovada](https://github.com/AugustodoBRT/Umbra/actions/runs/37254811753). Os SHA-256 dos dois executáveis publicados conferem com `SHA256SUMS.txt` e com os digests da API do GitHub. Duas execuções Linux receberam shutdown do runner; a repetição concluiu todas as etapas, sem remover testes.
 
-O teste Windows abre o executável empacotado sem biblioteca anterior, confirma a versão, conecta uma coleção temporária com nomes Unicode e verifica MP4 direto, conversão MKV, dois áudios, legendas, pausa/busca, volume, velocidade, tela cheia, retomada e exclusão durante reprodução. As preferências de legenda são verificadas depois da gravação em disco. O worker torrent incluído passa a inspeção de disponibilidade e a publicação sem sobrescrita, inclusive com nomes acentuados e codificação de pipe Windows simulada como CP1252.
+O teste Windows abre o executável empacotado sem biblioteca anterior, confirma a versão, conecta uma coleção temporária com nomes Unicode e verifica MP4/MKV nativos, dois áudios AC3, HEVC de 10 bits acima de 1080p, legendas, pausa/busca exata, volume, velocidade, tela cheia, retomada e exclusão durante reprodução. As preferências e o atraso de legenda são verificados em disco e no motor mpv. O worker torrent incluído passa a inspeção de disponibilidade e a publicação sem sobrescrita, inclusive com nomes acentuados e codificação de pipe Windows simulada como CP1252.
+
+O player usa mpv por JSON IPC e uma superfície filha Win32/X11, preservando resolução e faixas originais sem recodificação FFmpeg. GPU é habilitada por padrão, com decodificação por hardware quando disponível. O pacote Linux 0.1.5 foi verificado com Electron 44.5.1 em Ubuntu isolado; nesse ambiente virtual Xvfb, a saída por software `x11` evita imagem preta presente também no mpv independente. Arch e Windows foram verificados com saída GPU. Pesquisa, dependências e limites estão em `docs/PLAYER.md`.
 
 A mesma build Windows verifica o catálogo online, downloads HTTP locais de filme e temporada em uma raiz sem as pastas Filmes/Series, criação dos diretórios, importação automática e persistência de fila/lista/nota após reiniciar. Capturas do player e dos três downloads concluídos foram inspecionadas. O README mostra o Explorar com filmes reais do Cinemeta, sem baixar seus vídeos.
 
 - `npm run build`: TypeScript e produção Electron/React aprovados.
-- `npm test`: **48 testes aprovados**, com FFmpeg/ffprobe reais e um torrent sintético servido por libtorrent local.
+- `npm test`: **50 testes aprovados**, com mpv/FFmpeg/ffprobe reais e um torrent sintético servido por libtorrent local.
 - `npm run test:desktop`: aprovado no **Electron do Arch com player dentro da própria janela**. Seletor de pasta determinístico e HTTP dos provedores simulado na automação.
 - Fluxos desktop verificados: iniciar sem biblioteca; confirmar pasta; importar; salvar nota 8,5/resenha/favorito/minha lista; reproduzir/pausar/buscar; salvar e retomar após fechar o aplicativo; reabrir automaticamente biblioteca e chaves; carregar metadados após salvar chaves; escolher outra raiz após movê-la; backup; busca/filtros; foco Ctrl+K; detectar perda da raiz e reconectar; iniciar sem SSD sem recriar catálogo; desativar reabertura mantendo chaves; cancelar a confirmação de exclusão; excluir durante reprodução preservando o progresso; excluir título não assistido sem histórico; reiniciar com histórico arquivado e avaliações preservados.
 - Capturas `test-results/01-inicio.png` a `09-reabertura-automatica.png` inspecionadas visualmente. São artefatos de teste, com título sintético, e não a biblioteca do usuário.
@@ -55,8 +57,8 @@ A mesma build Windows verifica o catálogo online, downloads HTTP locais de film
 6. Testar exFAT real, disco retirado durante gravação, migração/backup após crash, recuperação manual de bloqueio na interface e falhas de espaço. Bloqueios locais de processos encerrados agora são recuperados automaticamente, com testes de concorrência, reinicialização e PID reutilizado; o README explica recuperação manual de lock desconhecido.
 7. Otimizar snapshots SQLite para bibliotecas grandes: queries agrupadas/paginação, virtualização de cartões e worker do scanner. Verificação integral opcional para conteúdo alterado sem mudança de tamanho/mtime.
 8. Importação de avaliações exportadas, CSV, NFO, estatísticas, comparações, diagnóstico de duplicatas, recomendações explicáveis e melhor suporte a anime/ordens alternativas.
-9. Validar HDR, passthrough multicanal, legendas bitmap e desempenho da conversão em bibliotecas reais. Player integrado, faixas, volume e retomada implementados; saída de conversão até 1080p.
-10. Validar pacote Linux e testar SSD exFAT físico e mudança de letra no Windows. As builds Windows usam mídia sintética com Unicode e verificam os executáveis incluídos.
+9. Validar HDR em monitor físico, passthrough multicanal em receiver, legendas bitmap reais e desempenho em filmes 4K longos. O mpv preserva a resolução original; HEVC de 10 bits, AC3 e ASS foram verificados com mídia sintética.
+10. Ampliar testes do pacote Linux em distribuições e drivers reais, testar SSD exFAT físico e mudança de letra no Windows. As builds Windows usam mídia sintética com Unicode e verificam os executáveis incluídos.
 
 ## Retomar o desenvolvimento
 
