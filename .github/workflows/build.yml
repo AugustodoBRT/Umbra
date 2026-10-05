@@ -29,10 +29,12 @@ jobs:
         env:
           CINESSD_ELECTRON: ./node_modules/electron/dist/electron
           CINESSD_CAPTURE_VIRTUAL_SCREEN: '1'
+          CINESSD_MPV_VO: x11
       - name: Test catalog and history in Electron
         run: xvfb-run -a npm run test:desktop
         env:
           CINESSD_ELECTRON: ./node_modules/electron/dist/electron
+          CINESSD_MPV_VO: x11
       - name: Test online library and downloads
         run: xvfb-run -a npm run test:online
         env:

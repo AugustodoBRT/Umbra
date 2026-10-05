@@ -61,7 +61,7 @@ npm run build
 npm start
 ```
 
-O Electron fornecido pelo npm é usado quando não há `/usr/bin/electron`. Para escolher outro runtime, use `CINESSD_ELECTRON`. A distribuição Linux empacotada ainda não foi validada; `npm run package:linux` gera uma pasta para testes.
+O Electron fornecido pelo npm é usado quando não há `/usr/bin/electron`. Para escolher outro runtime, use `CINESSD_ELECTRON`. `npm run package:linux` gera uma pasta executável, com a superfície nativa fora do ASAR e as ferramentas de mídia do sistema. O player desse pacote foi verificado localmente no Arch com Electron 44.5.1; outras distribuições precisam ser conferidas no próprio ambiente.
 
 ## Desenvolver e gerar o instalador
 

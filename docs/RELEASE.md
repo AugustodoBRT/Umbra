@@ -9,8 +9,8 @@ O Umbra agora reproduz vídeos com mpv integrado na própria janela.
 
 ### Windows x64
 
-- **Umbra-0.1.4-x64-nsis.exe**: instalador com atalho e escolha de pasta.
-- **Umbra-0.1.4-x64-portable.exe**: executável sem instalação.
+- **Umbra-0.1.5-x64-nsis.exe**: instalador com atalho e escolha de pasta.
+- **Umbra-0.1.5-x64-portable.exe**: executável sem instalação.
 - Electron, mpv, FFmpeg, ffprobe e motor torrent incluídos. Não precisa instalar Node.js, Python, mpv ou Stremio.
 
 A publicação exige aprovação dos testes Linux e do aplicativo Windows empacotado. Eles verificam a imagem na superfície nativa, MP4/MKV H.264, HEVC de 10 bits a 1920×1088, dois áudios AC3, legendas, pausa, busca exata, volume, velocidade, tela cheia, preferências, retomada, conclusão e liberação dos arquivos antes da exclusão. Catálogo online e downloads HTTP de filme/temporada em pasta vazia também são verificados; o worker torrent verifica Unicode e proteção contra sobrescrita.

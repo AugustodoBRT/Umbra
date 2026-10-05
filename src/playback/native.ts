@@ -104,7 +104,7 @@ export class NativePlayer {
       const args=['--no-config','--idle=yes','--pause=yes','--no-terminal','--load-scripts=no','--ytdl=no','--osc=no','--input-default-bindings=no','--input-vo-keyboard=yes','--sub-auto=no','--audio-file-auto=no','--cache=no','--demuxer-max-bytes=64MiB','--demuxer-max-back-bytes=16MiB','--hwdec=auto','--audio-channels=auto','--keep-open=no','--input-ipc-server='+address];
       if(this.options.headless) args.push('--vo=null','--ao=null');
       else {
-        args.push('--wid='+handle,process.platform==='linux' ? '--vo=gpu' : '--vo=gpu-next,gpu');
+        args.push('--wid='+handle,'--vo='+(process.env.CINESSD_MPV_VO || (process.platform==='linux' ? 'gpu' : 'gpu-next,gpu')));
         if(process.platform==='linux') args.push('--gpu-api=opengl','--gpu-context=x11egl');
       }
       if(process.env.CINESSD_MPV_AUDIO) args.push('--ao='+process.env.CINESSD_MPV_AUDIO);

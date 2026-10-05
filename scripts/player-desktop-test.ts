@@ -46,6 +46,15 @@ try {
  await page.evaluate(id=>window.cine.play(id),file.id);
  await until(async()=>{const s=await snapshot();return s.player.engine==='mpv'&&!!s.player.video&&s.player.position>1&&!s.player.error;},30000);
  probe=new MpvIPC();await probe.connect(address,()=>true);
+ const diagnostic=async(name:string)=>{
+  if(process.env.CINESSD_PLAYER_DIAG!=='1')return;
+  const properties:Record<string,unknown>={};
+  for(const key of ['video-params','video-out-params','osd-dimensions','current-vo','hwdec-current','pause','time-pos'])try{properties[key]=await probe!.command('get_property',key);}catch{}
+  console.log(name,JSON.stringify(properties));
+  await probe!.command('screenshot-to-file',path.resolve(`test-results/${name}.png`),'video');
+ };
+ if(process.env.CINESSD_PLAYER_DIAG==='1')execFileSync(ffmpeg,['-v','error','-ss','5','-i',path.join(root,file.path),'-frames:v','1','-y','test-results/25-source-frame.png']);
+ await diagnostic('26-first-video');
  const surface=await page.locator('.native-video-surface').evaluate(element=>{const r=element.getBoundingClientRect();return{width:Math.round(r.width*devicePixelRatio),height:Math.round(r.height*devicePixelRatio)};});
  await until(async()=>{const dimensions=await probe!.command('get_property','osd-dimensions');return Math.abs(dimensions.w-surface.width)<=2&&Math.abs(dimensions.h-surface.height)<=2;});
  assert.match(await probe.command('get_property','video-codec'),/H\.264|h264/i);assert.equal(await probe.command('get_property','audio-codec-name'),'ac3');
@@ -55,6 +64,7 @@ try {
  await page.getByRole('combobox',{name:'Faixa de áudio'}).selectOption(String(audio[1].id));await page.getByRole('combobox',{name:'Faixa de legenda'}).selectOption(String(sub.id));
  await page.evaluate(()=>window.cine.control('seek',5));
  await until(async()=>Math.abs(Number(await probe!.command('get_property','time-pos'))-5)<.15);
+ await diagnostic('27-after-seek');
  assert.equal(await probe.command('get_property','aid'),audio[1].id);assert.equal(await probe.command('get_property','sid'),sub.id);
  await page.evaluate(()=>window.cine.control('volume',35));await page.getByRole('combobox',{name:'Velocidade'}).selectOption('1.5');
  assert.equal(await probe.command('get_property','volume'),35);assert.equal(await probe.command('get_property','speed'),1.5);assert.equal(await probe.command('get_property','pause'),true);
@@ -62,7 +72,9 @@ try {
  await page.getByRole('button',{name:'Fechar ajustes de legenda'}).click();
  const appearance={fontSize:36,color:'#ffe066',background:'none',outline:false,bottom:12};
  await until(async()=>JSON.stringify(JSON.parse(await readFile(path.join(config,'library.json'),'utf8')).subtitleAppearance)===JSON.stringify(appearance));
- assert.equal(await probe.command('get_property','sub-delay'),.5);assert.equal(await probe.command('get_property','sub-font-size'),36);
+ // Saving the configuration precedes the asynchronous mpv property updates.
+ await until(async()=>await probe!.command('get_property','sub-delay')===.5 && await probe!.command('get_property','sub-font-size')===36);
+ await diagnostic('28-after-settings');
  await probe.command('screenshot-to-file',path.resolve('test-results/24-native-mpv-frame.png'),'subtitles');await capture('19-player-integrado.png');
  if(process.env.CINESSD_CAPTURE_VIRTUAL_SCREEN==='1'){
   // Allow the compositor to paint after closing the subtitle panel.
