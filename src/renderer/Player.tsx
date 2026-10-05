@@ -119,8 +119,9 @@ export function Player({ state,run,subtitleAppearance }: { state: PlayerState; r
     const observer=new ResizeObserver(schedule);observer.observe(surface);window.addEventListener('resize',schedule);document.addEventListener('visibilitychange',schedule);
     // Also hide the native child when a library modal covers a minimized player.
     const timer=setInterval(sync,250);schedule();
-    return () => {clearInterval(timer);cancelAnimationFrame(frame);observer.disconnect();window.removeEventListener('resize',schedule);document.removeEventListener('visibilitychange',schedule);if(previous)void window.cine.playerBounds({...JSON.parse(previous),visible:false}).catch(() => {});};
+    return () => {clearInterval(timer);cancelAnimationFrame(frame);observer.disconnect();window.removeEventListener('resize',schedule);document.removeEventListener('visibilitychange',schedule);};
   },[native,minimized,fullscreen,controlsVisible,appearanceOpen,state.loading,state.error]);
+  useEffect(()=>()=>{if(native)void window.cine.playerBounds({x:0,y:0,width:1,height:1,scale:devicePixelRatio,visible:false}).catch(()=>{});},[native]);
   useEffect(() => {
     if(!native) return;
     return window.cine.onEvent(event => {

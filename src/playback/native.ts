@@ -103,7 +103,10 @@ export class NativePlayer {
       const address=process.env.CINESSD_MPV_IPC || (process.platform==='win32' ? `\\\\.\\pipe\\umbra-mpv-${randomUUID()}` : path.join(this.directory,'ipc'));
       const args=['--no-config','--idle=yes','--pause=yes','--no-terminal','--load-scripts=no','--ytdl=no','--osc=no','--input-default-bindings=no','--input-vo-keyboard=yes','--sub-auto=no','--audio-file-auto=no','--cache=no','--demuxer-max-bytes=64MiB','--demuxer-max-back-bytes=16MiB','--hwdec=auto','--audio-channels=auto','--keep-open=no','--input-ipc-server='+address];
       if(this.options.headless) args.push('--vo=null','--ao=null');
-      else {args.push('--wid='+handle,'--vo=gpu-next,gpu');if(process.platform==='linux') args.push('--gpu-api=opengl','--gpu-context=x11egl');}
+      else {
+        args.push('--wid='+handle,process.platform==='linux' ? '--vo=gpu' : '--vo=gpu-next,gpu');
+        if(process.platform==='linux') args.push('--gpu-api=opengl','--gpu-context=x11egl');
+      }
       if(process.env.CINESSD_MPV_AUDIO) args.push('--ao='+process.env.CINESSD_MPV_AUDIO);
       this.process=spawn(this.options.mpv,args,{ windowsHide:true,stdio:['ignore','ignore','pipe'] });
       let logs=''; this.process.stderr?.on('data',chunk => {logs=(logs+chunk).slice(-3000);});this.process.on('error',() => {});

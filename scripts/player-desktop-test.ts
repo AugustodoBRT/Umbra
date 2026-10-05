@@ -65,9 +65,12 @@ try {
  assert.equal(await probe.command('get_property','sub-delay'),.5);assert.equal(await probe.command('get_property','sub-font-size'),36);
  await probe.command('screenshot-to-file',path.resolve('test-results/24-native-mpv-frame.png'),'subtitles');await capture('19-player-integrado.png');
  if(process.env.CINESSD_CAPTURE_VIRTUAL_SCREEN==='1'){
-  const pixels=await readFile('test-results/19-player-integrado.png');
-  const colored=await runtime.evaluate(({nativeImage},base64)=>{const data=nativeImage.createFromBuffer(Buffer.from(base64,'base64')).toBitmap();let count=0;for(let i=0;i<data.length;i+=4)if(Math.max(data[i],data[i+1],data[i+2])-Math.min(data[i],data[i+1],data[i+2])>100)count++;return count;},pixels.toString('base64'));
-  assert.ok(colored>20000,'The real desktop must contain the native video image, not just an empty HTML surface.');
+  // Allow the compositor to paint after closing the subtitle panel.
+  await until(async()=>{
+   await capture('19-player-integrado.png');const pixels=await readFile('test-results/19-player-integrado.png');
+   const primaries=await runtime!.evaluate(({nativeImage},base64)=>{const data=nativeImage.createFromBuffer(Buffer.from(base64,'base64')).toBitmap(),count=[0,0,0];for(let i=0;i<data.length;i+=4)for(let c=0;c<3;c++)if(data[i+c]>180&&data[i+(c+1)%3]<80&&data[i+(c+2)%3]<80)count[c]++;return count;},pixels.toString('base64'));
+   return primaries.every(count=>count>5000);
+  },10000);
  }
  await page.getByRole('button',{name:'Tela cheia do player'}).click();await until(()=>runtime!.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].isFullScreen()));
  await page.getByRole('button',{name:'Tela cheia do player'}).hover();await page.waitForFunction(()=>document.querySelector('.embedded-player')?.classList.contains('controls-hidden'),{},{timeout:7000});

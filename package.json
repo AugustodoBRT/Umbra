@@ -1,6 +1,6 @@
 {
   "name": "cinessd",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "private": true,
   "description": "Seu cinema, onde você estiver. Biblioteca pessoal e portátil de filmes e séries.",
   "license": "MIT",
@@ -62,7 +62,12 @@
       ],
       "category": "AudioVideo",
       "icon": "assets/icon.svg",
-      "extraResources": [{ "from": "dist/bin", "to": "bin" }]
+      "extraResources": [
+        {
+          "from": "dist/bin",
+          "to": "bin"
+        }
+      ]
     },
     "win": {
       "target": [
