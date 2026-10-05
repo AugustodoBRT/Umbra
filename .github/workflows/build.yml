@@ -74,6 +74,7 @@ jobs:
           Get-ChildItem release\Umbra-*.exe | ForEach-Object { "{0}  {1}" -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower(), $_.Name } | Set-Content -Encoding utf8 release\SHA256SUMS.txt
           Copy-Item packaging\windows\cache\ffmpeg.zip release\ffmpeg-9.0.2-win64-original.zip
           Copy-Item packaging\windows\cache\mpv.7z release\mpv-20261004-win64-original.7z
+          Copy-Item packaging\windows\cache\vulkan-runtime.zip release\vulkan-1.4.363.0-win64-original.zip
       - uses: actions/upload-artifact@v4
         with:
           name: umbra-windows-x64
@@ -82,6 +83,7 @@ jobs:
             release/SHA256SUMS.txt
             release/ffmpeg-9.0.2-win64-original.zip
             release/mpv-20261004-win64-original.7z
+            release/vulkan-1.4.363.0-win64-original.zip
       - uses: actions/upload-artifact@v4
         if: always()
         with:

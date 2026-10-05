@@ -79,6 +79,7 @@ try {
  await capture('20-fullscreen-controls.png');
  await probe.command('keypress','F11');await until(async()=>!(await runtime!.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].isFullScreen())));
  await page.keyboard.press('F11');await until(()=>runtime!.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].isFullScreen()));
+ await page.waitForFunction(()=>document.querySelector('.embedded-player')?.classList.contains('fullscreen'));
  await probe.command('keypress','ESC');await until(async()=>!(await runtime!.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].isFullScreen())));
  await page.getByRole('button',{name:'Minimizar player'}).click();assert.notEqual(await page.evaluate(()=>getComputedStyle(document.documentElement).overflow),'hidden');await page.getByRole('button',{name:'Expandir player'}).click();
  await page.getByRole('button',{name:'Encerrar reprodução'}).click();probe.close();probe=undefined;

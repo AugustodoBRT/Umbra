@@ -51,6 +51,7 @@
     "files": [
       "dist/**/*",
       "!dist/player-host-build/**/*",
+      "!dist/bin/**/*",
       "package.json",
       "LICENSE",
       "THIRD_PARTY.md"
@@ -60,7 +61,8 @@
         "dir"
       ],
       "category": "AudioVideo",
-      "icon": "assets/icon.svg"
+      "icon": "assets/icon.svg",
+      "extraResources": [{ "from": "dist/bin", "to": "bin" }]
     },
     "win": {
       "target": [

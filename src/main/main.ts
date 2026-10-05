@@ -53,7 +53,13 @@ const emit = (event: Event) => { if (switching && event.type === 'changed') retu
 const scanner = new Scanner(data => { emit({ type: 'scan',data }); if (!data.running) { emit({ type: 'changed' }); if (pendingDownloadScan && store && !switching && !shuttingDown) { pendingDownloadScan = false; void scanner.start(store); } else scheduleEnrichment(); } });
 const player = new NativePlayer(data => { emit({ type: 'player',data }); if (!data.active) { if (window?.isFullScreen()) window.setFullScreen(false); emit({ type: 'changed' }); } },{
   mpv:mpvTool(),host:playerHost(),parent:() => {const handle=window.getNativeWindowHandle();return handle.length===4 ? String(handle.readUInt32LE()) : handle.readBigUInt64LE().toString();},appearance:() => computer.subtitleAppearance ?? defaultSubtitleAppearance,
-  input:action => emit({ type:'player-input',action })
+  input:action => {
+    // Native Escape can arrive before React renders a fullscreen transition.
+    if(action==='minimize' && player.state.fullscreen){
+      void player.control('fullscreen').then(()=>{if(!window.isDestroyed())window.setFullScreen(player.state.fullscreen);}).catch(()=>{});return;
+    }
+    emit({ type:'player-input',action });
+  }
 });
 let diagnostic = { ffprobe: false, ffmpeg: false, mpv:false, platform: process.platform, electron: process.versions.electron };
 function secureStorage() { return safeStorage.isEncryptionAvailable() && (process.platform !== 'linux' || safeStorage.getSelectedStorageBackend() !== 'basic_text'); }

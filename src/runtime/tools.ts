@@ -21,10 +21,8 @@ export function mpvTool() {
 }
 export function playerHost() {
   if(process.env.CINESSD_PLAYER_HOST) return process.env.CINESSD_PLAYER_HOST;
-  if(process.platform==='win32') {
-    const packaged=path.join(process.resourcesPath ?? '', 'bin','umbra-player-host.exe');
-    if(existsSync(packaged)) return packaged;
-  }
-  // dist/bin is included with the Linux app as well as development builds.
-  return path.join(__dirname,'../bin',process.platform==='win32' ? 'umbra-player-host.exe' : 'umbra-player-host');
+  const name=process.platform==='win32' ? 'umbra-player-host.exe' : 'umbra-player-host';
+  const packaged=path.join(process.resourcesPath ?? '', 'bin',name);
+  if(existsSync(packaged)) return packaged;
+  return path.join(__dirname,'../bin',name);
 }
