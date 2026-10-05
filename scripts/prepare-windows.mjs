@@ -31,3 +31,4 @@ await mkdir(path.join(base,'licenses'),{ recursive: true });
 for (const entry of await readdir(source,{ withFileTypes: true })) if (entry.name !== 'bin') await cp(path.join(source,entry.name),path.join(base,'licenses',entry.name),{ recursive: true });
 await writeFile(path.join(base,'licenses','ffmpeg-provenance.json'),JSON.stringify(provenance,null,2)+'\n');
 console.log('FFmpeg/ffprobe verificados e preparados.');
+await import('./prepare-mpv.mjs');

@@ -11,8 +11,8 @@ import { OnlineStore } from '../storage/online';
 import { Addons } from '../online/addons';
 import { Downloads } from '../downloads/downloads';
 import { Scanner } from '../library/scanner';
-import { EmbeddedPlayer } from '../playback/embedded';
-import { mediaTool, torrentWorker } from '../runtime/tools';
+import { NativePlayer } from '../playback/native';
+import { mediaTool, torrentWorker, mpvTool, playerHost } from '../runtime/tools';
 import { Providers, emptyIdentification } from '../metadata/providers';
 import { existingPath, resolvePath, relativePath } from '../library/paths';
 import { removeWork as removeLocalWork } from '../library/removal';
@@ -24,6 +24,8 @@ protocol.registerSchemesAsPrivileged([{ scheme: 'cinessd', privileges: { standar
 // Keep the existing profile when changing the public product name.
 app.setPath('userData',process.env.CINESSD_DATA_DIR ? path.resolve(process.env.CINESSD_DATA_DIR) : path.join(app.getPath('appData'),'cinessd'));
 app.setName('Umbra');
+// mpv owns an X11 child surface; XWayland supplies it on Wayland desktops.
+if(process.platform==='linux') app.commandLine.appendSwitch('ozone-platform','x11');
 let window: BrowserWindow;
 let store: Store | null = null;
 let lastSnapshot: Snapshot | undefined;
@@ -49,8 +51,11 @@ const providers = new Providers();
 const operations = new Set<Promise<unknown>>();
 const emit = (event: Event) => { if (switching && event.type === 'changed') return; if (window && !window.isDestroyed()) window.webContents.send('cine:event',event); };
 const scanner = new Scanner(data => { emit({ type: 'scan',data }); if (!data.running) { emit({ type: 'changed' }); if (pendingDownloadScan && store && !switching && !shuttingDown) { pendingDownloadScan = false; void scanner.start(store); } else scheduleEnrichment(); } });
-const player = new EmbeddedPlayer(data => { emit({ type: 'player',data }); if (!data.active) { if (window?.isFullScreen()) window.setFullScreen(false); emit({ type: 'changed' }); } });
-let diagnostic = { ffprobe: false, ffmpeg: false, platform: process.platform, electron: process.versions.electron };
+const player = new NativePlayer(data => { emit({ type: 'player',data }); if (!data.active) { if (window?.isFullScreen()) window.setFullScreen(false); emit({ type: 'changed' }); } },{
+  mpv:mpvTool(),host:playerHost(),parent:() => {const handle=window.getNativeWindowHandle();return handle.length===4 ? String(handle.readUInt32LE()) : handle.readBigUInt64LE().toString();},appearance:() => computer.subtitleAppearance ?? defaultSubtitleAppearance,
+  input:action => emit({ type:'player-input',action })
+});
+let diagnostic = { ffprobe: false, ffmpeg: false, mpv:false, platform: process.platform, electron: process.versions.electron };
 function secureStorage() { return safeStorage.isEncryptionAvailable() && (process.platform !== 'linux' || safeStorage.getSelectedStorageBackend() !== 'basic_text'); }
 function settings(): Settings { return { tmdbConfigured: !!providers.tmdb, omdbConfigured: !!providers.omdb, secureStorage: secureStorage(), credentialStorage: credentials?.backend ?? 'local',reopenLastLibrary: computer.reopenLastLibrary,subtitleAppearance: computer.subtitleAppearance ?? defaultSubtitleAppearance,completedPercent: store?.setting('completedPercent',90) ?? 90, hideSpoilers: store?.setting('hideSpoilers',true) ?? true, autoScan: store?.setting('autoScan',true) ?? true, diagnostics: diagnostic }; }
 function snapshot(): Snapshot {
@@ -204,13 +209,20 @@ function handlers() {
   register('edit',async (id,value) => { (await requireStore()).edit(idSchema.parse(id),editSchema.parse(value)); emit({ type: 'changed' }); });
   register('play',async (id,restart) => { await player.play(await requireStore(),idSchema.parse(id),z.boolean().optional().parse(restart)); },true);
   register('control',async (action,value) => {
-    const name = z.enum(['stop','pause','seek','volume','speed','audio','subtitle','fullscreen']).parse(action);
+    const name = z.enum(['stop','pause','seek','volume','speed','audio','subtitle','subtitleDelay','fullscreen']).parse(action);
+    if(name==='subtitleDelay') value=z.number().finite().min(-30).max(30).parse(value);
     if (['seek','volume','speed'].includes(name)) { value = z.number().finite().nonnegative().parse(value); if (name === 'volume' && value > 100 || name === 'speed' && (value < .25 || value > 4) || name === 'seek' && value > player.state.duration) throw new Error('Valor do controle inválido.'); }
     if (['audio','subtitle'].includes(name)) value = z.union([z.number().int().nonnegative(),z.enum(['no','auto'])]).parse(value);
     await player.control(name,value);
     if (name === 'fullscreen') window.setFullScreen(player.state.fullscreen);
   });
-  register('playbackReport',async (token,position,ended,error) => player.report(idSchema.parse(token),z.number().finite().nonnegative().parse(position),z.boolean().parse(ended),z.boolean().optional().parse(error)));
+  register('playbackReport',async () => { throw new Error('O progresso agora vem diretamente do motor mpv.'); });
+  register('playerBounds',async value => {
+    const bounds=z.object({x:z.number().finite().min(0),y:z.number().finite().min(0),width:z.number().finite().min(0).max(32768),height:z.number().finite().min(0).max(32768),scale:z.number().finite().min(.25).max(8),visible:z.boolean()}).parse(value);
+    const [width,height]=window.getContentSize();
+    if(bounds.x+bounds.width>width+2 || bounds.y+bounds.height>height+2) return;
+    player.boundsChanged(bounds);
+  });
   register('reveal',async id => { const current = await requireStore(); const file = current.file(idSchema.parse(id)); shell.showItemInFolder(await existingPath(current.root,file.path)); });
   register('searchMetadata',async (id,query) => { const current = await requireStore(); return providers.search(current.detail(idSchema.parse(id)),z.string().trim().min(1).max(300).parse(query)); },true);
   register('associate',async (id,candidate) => { const current = await requireStore(); await providers.associate(current,current.detail(idSchema.parse(id)),candidateSchema.parse(candidate)); emit({ type: 'changed' }); scheduleEnrichment(); },true);
@@ -238,7 +250,7 @@ function handlers() {
   });
   register('subtitleAppearance',async value => {
     computer = { ...computer,subtitleAppearance: subtitleAppearanceSchema.parse(value) };
-    await localConfig(); emit({ type: 'changed' });
+    await localConfig(); await player.subtitleAppearance(computer.subtitleAppearance!); emit({ type: 'changed' });
   });
   register('backup',async () => (await requireStore()).backup(),true);
   register('exportData',async () => {
@@ -275,10 +287,10 @@ async function enqueueDownloads(action: () => Promise<void>) {
   const task = action(); operations.add(task);
   try { await task; } finally { operations.delete(task); }
 }
-function executable(binary: string) { return new Promise<boolean>(resolve => { const child = spawn(binary,['-version'],{ stdio: 'ignore' }); child.on('error',() => resolve(false)); child.on('exit',code => resolve(code === 0)); setTimeout(() => { child.kill(); resolve(false); },3000).unref(); }); }
+function executable(binary: string,flag='-version') { return new Promise<boolean>(resolve => { const child = spawn(binary,[flag],{ stdio: 'ignore',windowsHide:true }); child.on('error',() => resolve(false)); child.on('exit',code => resolve(code === 0)); setTimeout(() => { child.kill(); resolve(false); },3000).unref(); }); }
 async function ready() {
   await mkdir(app.getPath('userData'),{ recursive: true });
-  const [ffprobe,ffmpeg] = await Promise.all([executable(mediaTool('ffprobe')),executable(mediaTool('ffmpeg'))]); diagnostic = { ...diagnostic,ffprobe,ffmpeg };
+  const [ffprobe,ffmpeg,mpv] = await Promise.all([executable(mediaTool('ffprobe')),executable(mediaTool('ffmpeg')),executable(mpvTool(),'--version')]); diagnostic = { ...diagnostic,ffprobe,ffmpeg,mpv };
   try { computer = await loadComputerConfig(app.getPath('userData')); lastRoot = computer.lastRoot; } catch (error: any) { startupError = error.message; }
   credentials = new Credentials(app.getPath('userData'),{ available: secureStorage,encrypt: value => safeStorage.encryptString(value),decrypt: value => safeStorage.decryptString(value) });
   try { const keys = await credentials.load(); providers.tmdb = keys.tmdb; providers.omdb = keys.omdb; } catch (error: any) { startupError = error.message; }
@@ -299,7 +311,7 @@ async function ready() {
   }
   protocol.handle('cinessd',async request => {
     try {
-      if (new URL(request.url).host === 'media') return await player.response(request);
+      if (new URL(request.url).host === 'media') return new Response('O player usa mpv.',{status:404});
       const url = new URL(request.url); const relative = decodeURIComponent(url.pathname.slice(1));
       if (url.hostname === 'online-image') return addons.imageResponse(idSchema.parse(relative));
       let file: string;

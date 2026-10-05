@@ -10,6 +10,7 @@ const api: API = {
   removalPreview: id => invoke('removalPreview',id),removeWork: id => invoke('removeWork',id),
   personal: (id,value) => invoke('personal',id,value), edit: (id,value) => invoke('edit',id,value), play: (id,restart) => invoke('play',id,restart), control: (action,value) => invoke('control',action,value), reveal: id => invoke('reveal',id),
   playbackReport: (...args) => invoke('playbackReport',...args),
+  playerBounds: value => invoke('playerBounds',value),
   searchMetadata: (id,query) => invoke('searchMetadata',id,query), associate: (id,candidate) => invoke('associate',id,candidate), unmatch: id => invoke('unmatch',id), loadSeason: id => invoke('loadSeason',id), enrich: () => invoke('enrich'), saveKeys: (tmdb,omdb) => invoke('saveKeys',tmdb,omdb), settings: value => invoke('settings',value), backup: () => invoke('backup'), exportData: () => invoke('exportData'), list: (action,id,value) => invoke('list',action,id,value),
   onEvent(callback) { const listener = (_: unknown,event: Event) => callback(event); ipcRenderer.on('cine:event',listener); return () => ipcRenderer.removeListener('cine:event',listener); }
 };

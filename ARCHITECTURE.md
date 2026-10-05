@@ -12,7 +12,7 @@
 | `src/metadata` | TMDB/OMDb, candidatos, associação conservadora e imagens offline |
 | `src/online` | Protocolo Stremio, complementos, catálogos e revisão de fontes por temporada |
 | `src/downloads` | Fila persistente, transferência HTTP e worker Python/libtorrent |
-| `src/playback` | Player integrado, protocolo de mídia, conversão e progresso |
+| `src/playback` | Motor mpv integrado, IPC privado, controles e progresso |
 | `scripts` | Build, desenvolvimento, seleção do runtime e teste desktop |
 
 ## Limites de confiança
@@ -53,15 +53,17 @@ Downloads verificam identidade do manifesto e confinamento da pasta. Diretórios
 
 ## Reprodução local
 
-O renderer usa um elemento HTML5 video, com MP4 H.264/AAC direto e suporte a Range pelo protocolo cinessd://media. O main resolve somente IDs do catálogo, limita o acesso à sessão ativa por um token aleatório e verifica a identidade da biblioteca. MKV e codecs incompatíveis passam por FFmpeg para H.264/AAC fMP4 via pipe e MediaSource. A saída é limitada a 1080p, com buffer de leitura de aproximadamente 20 segundos e remoção de segmentos já reproduzidos. Não se grava uma cópia convertida no disco.
+O player padrão usa mpv em um processo isolado, com vídeo embutido em uma janela filha nativa pertencente à BrowserWindow. `packaging/player-host` cria e reposiciona apenas essa superfície (Win32 ou X11/XWayland); decodificação, GPU, cores, áudio e legendas pertencem ao mpv. A interface React mantém seus controles e envia somente IDs de arquivos autorizados e operações validadas ao main. Não há recodificação de vídeo/áudio, redução obrigatória para 1080p ou cópia convertida. `hwdec=auto` permite aceleração suportada pelo mpv, com fallback de decodificação em CPU. Cache de demux limitado a 64 MiB à frente e 16 MiB anteriores.
 
-Seek e troca de faixa criam uma nova fonte com offset lógico; relatórios de tokens anteriores são ignorados. Legendas de texto passam a WebVTT e ajustam timestamps ao offset. Legendas bitmap são incorporadas ao vídeo durante a conversão. Processos FFmpeg são encerrados e aguardados antes de desconectar ou excluir vídeos, liberando handles do Windows. Volume, velocidade e pausa são aplicados no elemento video; tela cheia permanece na mesma BrowserWindow. Progresso é salvo a cada três segundos e ao encerrar. A conclusão padrão é 90%, ajustável nas configurações.
+O controle usa JSON IPC sobre socket em diretório temporário privado no Unix ou named pipe aleatório no Windows. Configurações e scripts do mpv do usuário não são carregados. O renderer não recebe o endpoint nem pode enviar comandos arbitrários. Cada sessão observa posição, pausa, faixas e parâmetros de vídeo; eventos de processos anteriores são ignorados. Seek exato e troca de faixa acontecem no próprio mpv. SRT/VTT, ASS/SSA e legendas em imagem são renderizadas sem WebVTT intermediário; estilos ASS são preservados. O atraso de legenda fica salvo por arquivo no catálogo. Antes de excluir ou desconectar, o main salva a posição e aguarda encerrar mpv e a superfície, liberando handles Windows. Progresso é salvo a cada três segundos e ao encerrar. A conclusão padrão é 90%, ajustável nas configurações.
+
+Tela cheia permanece na mesma BrowserWindow. Os controles web têm área própria enquanto visíveis; ao sumirem, a superfície nativa ocupa o viewport inteiro. Aparência da legenda abre ao lado do vídeo, evitando que a janela nativa encubra o painel. Movimento/teclas recebidos pelo mpv retornam como eventos restritos à interface. Redimensionamentos suprimem brevemente movimentos sintéticos do cursor para evitar reaparecimento involuntário dos controles. A implementação HTML5 anterior permanece em `embedded.ts` para testes de regressão, mas não é o player padrão.
 
 Tempo efetivamente reproduzido soma avanços plausíveis entre amostras de 500 ms, limitado pelo tempo monotônico e corrigido pela velocidade. Saltos de seek não viram horas assistidas; é uma aproximação, não telemetria por frame. Faixas preferidas são salvas por idioma/título, evitando depender apenas do número da faixa. A próxima seleção de episódio considera temporada/número; se o próximo catalogado estiver ausente, o botão principal não pula silenciosamente para outro. Autoplay não foi implementado.
 
 ## Empacotamento e desempenho
 
-O Windows x64 usa NSIS por usuário e um executável portable via electron-builder. Electron, FFmpeg/ffprobe e um worker Python/libtorrent construído com PyInstaller acompanham o pacote em resources/bin. Downloads do FFmpeg têm versão fixa e SHA-256 verificado. CI executa o app empacotado no Windows com coleção Unicode, seleção nativa simulada, duas faixas de áudio, legendas e exclusão durante conversão. O manifesto e SQLite são os mesmos do Linux. O executável pode ficar no computador e a biblioteca em qualquer pasta autorizada; nenhum caminho do desenvolvedor é necessário.
+O Windows x64 usa NSIS por usuário e um executável portable via electron-builder. Electron, mpv, superfície nativa, FFmpeg/ffprobe e um worker Python/libtorrent construído com PyInstaller acompanham o pacote. Downloads de mpv e FFmpeg têm versões fixas e SHA-256 verificado, com arquivos originais e proveniência preservados. CI executa o app empacotado no Windows com coleção Unicode, seleção nativa simulada, HEVC de 10 bits acima de 1080p, dois áudios AC3, legendas, controles, persistência e exclusão durante reprodução. O manifesto e SQLite são os mesmos do Linux. O executável pode ficar no computador e a biblioteca em qualquer pasta autorizada; nenhum caminho do desenvolvedor é necessário.
 
 Atualmente o main gerencia SQLite e escaneia um arquivo de cada vez, mantendo inspeção/hash em operações assíncronas. O snapshot monta agregados por obra com consultas adicionais: para catálogos muito grandes, evoluir para queries agrupadas/paginadas e um worker de scanner/armazenamento. Validar ganho com uma biblioteca real grande antes de aumentar concorrência e consumo de I/O do SSD.
 

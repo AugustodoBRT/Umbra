@@ -12,13 +12,14 @@ export interface RemovalPreview { id: string; title: string; kind: 'movie'|'seri
 export interface RemovalResult { keptHistory: boolean; cleanupPending: boolean }
 export interface PlaybackSession { id: string; fileId: string; startedAt: string; endedAt: string | null; watchedSeconds: number; endPosition: number }
 export interface ScanProgress { running: boolean; phase: 'discovering' | 'inspecting' | 'done'; total: number; processed: number; added: number; updated: number; missing: number; current: string; errors: string[]; cancelled: boolean }
-export interface PlayerState { active: boolean; fileId: string | null; title: string; position: number; duration: number; paused: boolean; volume: number; speed: number; tracks: MediaTrack[]; audio: number | string; subtitle: number | string; fullscreen: boolean; error?: string; source?: { token: string; mode: 'file'|'stream'; url: string; start: number; subtitleUrl?: string } }
+export interface PlayerBounds { x: number; y: number; width: number; height: number; scale: number; visible: boolean }
+export interface PlayerState { active: boolean; fileId: string | null; title: string; position: number; duration: number; paused: boolean; volume: number; speed: number; tracks: MediaTrack[]; audio: number | string; subtitle: number | string; fullscreen: boolean; engine?: 'mpv'; loading?: boolean; subtitleDelay?: number; video?: { width: number; height: number; codec: string; pixelFormat: string; hardware: string }; error?: string; source?: { token: string; mode: 'file'|'stream'; url: string; start: number; subtitleUrl?: string } }
 export interface Candidate { id: number; kind: 'movie' | 'series'; title: string; originalTitle: string; year: number | null; overview: string; poster: string | null; confidence: number }
 export interface CustomList { id: string; name: string; workIds: string[] }
-export interface Settings { tmdbConfigured: boolean; omdbConfigured: boolean; secureStorage: boolean; credentialStorage: 'system'|'local'; completedPercent: number; hideSpoilers: boolean; autoScan: boolean; reopenLastLibrary: boolean; subtitleAppearance: import('./subtitles').SubtitleAppearance; diagnostics: { ffprobe: boolean; ffmpeg: boolean; platform: string; electron: string } }
+export interface Settings { tmdbConfigured: boolean; omdbConfigured: boolean; secureStorage: boolean; credentialStorage: 'system'|'local'; completedPercent: number; hideSpoilers: boolean; autoScan: boolean; reopenLastLibrary: boolean; subtitleAppearance: import('./subtitles').SubtitleAppearance; diagnostics: { ffprobe: boolean; ffmpeg: boolean; mpv: boolean; platform: string; electron: string } }
 export interface IdentificationProgress { running: boolean; total: number; processed: number; matched: number; pending: number; errors: string[]; candidates: Record<string,Candidate[]> }
 export interface Snapshot { library: LibraryInfo | null; works: Work[]; history: WatchedHistory[]; lists: CustomList[]; scan: ScanProgress; player: PlayerState; settings: Settings; identification: IdentificationProgress; error?: string }
-export type Event = { type: 'changed' } | { type: 'downloads' } | { type: 'scan'; data: ScanProgress } | { type: 'player'; data: PlayerState } | { type: 'identification'; data: IdentificationProgress } | { type: 'disconnected'; message: string };
+export type Event = { type: 'changed' } | { type: 'downloads' } | { type: 'scan'; data: ScanProgress } | { type: 'player'; data: PlayerState } | { type: 'player-input'; action: string } | { type: 'identification'; data: IdentificationProgress } | { type: 'disconnected'; message: string };
 export interface API {
   addons(): Promise<import('./online').AddonSummary[]>;
   installAddon(url: string): Promise<void>;
@@ -48,6 +49,7 @@ export interface API {
   edit(id: string, value: { title: string; year: number | null; overview: string; tags: string[] }): Promise<void>;
   play(fileId: string, restart?: boolean): Promise<void>;
   control(action: string, value?: number | string): Promise<void>;
+  playerBounds(value: PlayerBounds): Promise<void>;
   playbackReport(token: string,position: number,ended: boolean,error?: boolean): Promise<void>;
   reveal(fileId: string): Promise<void>;
   searchMetadata(id: string, query: string): Promise<Candidate[]>;

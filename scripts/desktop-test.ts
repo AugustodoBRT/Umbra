@@ -14,7 +14,7 @@ const output = path.resolve('test-results'); await mkdir(output,{ recursive: tru
 let runtime: Awaited<ReturnType<typeof electron.launch>> | undefined;
 const logs: string[] = [];
 async function launch() {
-  runtime = await electron.launch({ executablePath: process.env.CINESSD_ELECTRON || '/usr/bin/electron',args: [path.resolve('.'),'--password-store=basic'],env: Object.fromEntries(Object.entries({ ...process.env,CINESSD_DATA_DIR: config }).filter(([key]) => key.toUpperCase() !== 'ELECTRON_RUN_AS_NODE')),timeout: 30000 });
+  runtime = await electron.launch({ executablePath: process.env.CINESSD_ELECTRON || '/usr/bin/electron',args: [path.resolve('.'),'--password-store=basic',...(process.platform==='linux'?['--ozone-platform=x11']:[])],env: Object.fromEntries(Object.entries({ ...process.env,CINESSD_DATA_DIR: config }).filter(([key]) => key.toUpperCase() !== 'ELECTRON_RUN_AS_NODE')),timeout: 30000 });
   const page = await runtime.firstWindow();
   page.on('pageerror',error => logs.push(error.message));
   page.on('console',message => { if (message.type() === 'error') logs.push(`${message.text()} ${message.location().url}`.trim()); });

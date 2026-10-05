@@ -15,7 +15,7 @@
 
 ## O que tem no Umbra
 
-- **Player integrado:** pausa, busca, áudio, legendas embutidas ou próximas ao vídeo, volume, velocidade, tela cheia com controles que somem e retomada. Personalize tamanho, cor, fundo, contorno e posição das legendas de texto.
+- **Player mpv integrado:** decodificação nativa, GPU quando disponível, pausa, busca precisa, faixas, volume, velocidade, tela cheia e retomada. Personalize legendas de texto e sincronize seu atraso; estilos ASS são preservados.
 - **Uma biblioteca sua:** pastas locais ou SSD externo, importação por seletor, filmes, temporadas, episódios, busca e filtros.
 - **Metadados em português:** sinopses e gêneros via TMDB, mantendo títulos originais. Configure sua chave no app; a coleção funciona sem ela.
 - **Seu registro de cinema:** notas, resenhas, favoritos, listas e histórico de assistidos.
@@ -36,20 +36,20 @@
 2. Em **Início → Conectar minha biblioteca**, selecione sua pasta de vídeos. Pode ser `C:\Users\Você\Videos\Cinema`, outro disco ou um SSD externo.
 3. Aguarde a importação, abra um título e clique em **Assistir**.
 
-**Não depende do meu SSD.** O aplicativo abre sem biblioteca conectada e não tem um caminho de vídeos fixo. Electron, FFmpeg, ffprobe e o motor torrent estão incluídos: não é necessário instalar Node.js, Python, mpv ou Stremio. A primeira versão é distribuída sem assinatura de código; o Windows pode exibir “editor desconhecido”.
+**Não depende do meu SSD.** O aplicativo abre sem biblioteca conectada e não tem um caminho de vídeos fixo. Electron, mpv, FFmpeg, ffprobe e o motor torrent estão incluídos: não é necessário instalar Node.js, Python, mpv ou Stremio. A primeira versão é distribuída sem assinatura de código; o Windows pode exibir “editor desconhecido”.
 
 As builds Windows são produzidas pelo GitHub Actions e verificadas com o **aplicativo empacotado**, vídeo sintético, faixas de áudio, legenda, retomada, exclusão e downloads de filme e temporada em uma pasta vazia. Veja o resultado na aba [Actions](https://github.com/AugustodoBRT/Umbra/actions). Os hashes dos executáveis acompanham cada release em `SHA256SUMS.txt`.
 
 ## Executar no Linux
 
-Para executar pelo código, instale **Node.js 24+** e **FFmpeg/ffprobe**. Downloads torrent também precisam de **Python 3 + libtorrent**; o catálogo e vídeos locais funcionam sem esse motor.
+Para executar pelo código, instale **Node.js 24+**, **mpv**, **FFmpeg/ffprobe** e as ferramentas de compilação da superfície nativa. No Linux, ela usa X11/XWayland. Downloads torrent também precisam de **Python 3 + libtorrent**; o catálogo e vídeos locais funcionam sem esse motor.
 
 ```bash
 # Arch Linux
-sudo pacman -S nodejs npm ffmpeg python-libtorrent
+sudo pacman -S nodejs npm mpv ffmpeg python-libtorrent cmake base-devel libx11
 
 # Ubuntu/Debian
-sudo apt install ffmpeg python3-libtorrent python-is-python3
+sudo apt install mpv ffmpeg python3-libtorrent python-is-python3 cmake build-essential libx11-dev
 # Instale Node.js 24+ antes dos comandos abaixo.
 ```
 
@@ -82,7 +82,7 @@ Os testes gráficos precisam de uma sessão desktop; no Linux CI, use `xvfb-run 
 
 O print do Explorar usa títulos e pôsteres reais do Cinemeta. Para refazê-lo após o build, execute `node --import tsx scripts/capture-explore.ts` em uma sessão desktop com acesso à internet; a captura usa um perfil temporário.
 
-No **Windows x64**, com Node.js 24+ e Python 3.12 para construir:
+No **Windows x64**, com Node.js 24+, Python 3.12, CMake, Visual Studio Build Tools (C++/Windows SDK) e 7-Zip para construir:
 
 ```powershell
 npm ci
@@ -92,11 +92,11 @@ npm run package:windows
 npm run test:windows
 ```
 
-Os executáveis ficam em `release/`. O preparo baixa uma versão fixa do FFmpeg, verifica SHA-256 e constrói o worker torrent independente. [O workflow](.github/workflows/build.yml) repete esse processo e publica releases apenas depois dos testes Linux e Windows passarem.
+Os executáveis ficam em `release/`. O preparo baixa versões fixas de mpv/FFmpeg, verifica SHA-256 e constrói o worker torrent independente. [O workflow](.github/workflows/build.yml) repete esse processo e publica releases apenas depois dos testes Linux e Windows passarem.
 
 ## Reprodução e dados
 
-MP4 H.264/AAC compatível toca diretamente. MKV e outros formatos usam conversão durante a sessão, **sem modificar o arquivo original**, com saída até 1080p. A conversão pode exigir mais CPU. HDR, áudio multicanal por passthrough e fidelidade de efeitos ASS ainda não foram validados. Não há autoplay do próximo episódio.
+O player integrado usa **mpv**, com decodificação direta e aceleração por GPU quando disponível. MKV, HEVC de 10 bits, múltiplos áudios e legendas ASS não passam pela antiga conversão H.264/AAC; não há redução obrigatória para 1080p nem geração de uma cópia convertida. A qualidade e o desempenho de 4K/HDR dependem do arquivo, GPU, driver e tela; HDR físico e passthrough de home theater ainda precisam de validação. Não há autoplay do próximo episódio. No Linux, a integração nativa usa X11/XWayland.
 
 O Umbra cria `Biblioteca/` dentro da pasta selecionada para guardar catálogo, imagens e backups. Caminhos de vídeos são relativos, permitindo mover a coleção. Ao levar a biblioteca para outro computador, selecione novamente a pasta e configure suas próprias chaves. Para bloqueios após interrupções, backups e exclusões, consulte [o guia de uso](docs/USAGE.md).
 
@@ -104,7 +104,7 @@ A interface é em português, com paleta preto, ivório e verde luminoso. [A mar
 
 ## Licenças e fontes
 
-Código do Umbra sob [MIT](LICENSE). Ferramentas e dados externos mantêm suas próprias licenças; veja [THIRD_PARTY.md](THIRD_PARTY.md). As distribuições Windows incluem avisos do FFmpeg e do motor torrent.
+Código do Umbra sob [MIT](LICENSE). Ferramentas e dados externos mantêm suas próprias licenças; veja [THIRD_PARTY.md](THIRD_PARTY.md). As distribuições Windows incluem avisos de mpv, FFmpeg e do motor torrent. A [pesquisa e decisão sobre o player](docs/PLAYER.md) documentam as referências consultadas.
 
 This product uses the TMDB API but is not endorsed or certified by TMDB.
 

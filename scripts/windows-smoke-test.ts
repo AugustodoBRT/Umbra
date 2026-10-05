@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 if (process.platform !== 'win32') throw new Error('Este teste exige Windows.');
 const resources = path.resolve('release/win-unpacked/resources/bin');
 const worker = path.join(resources,'torrent/umbra-torrent.exe');
+execFileSync(path.join(resources,'mpv/mpv.exe'),['--version'],{stdio:'inherit',windowsHide:true});
 execFileSync(worker,['--check'],{ stdio: 'inherit',windowsHide: true });
 const directory = mkdtempSync(path.join(tmpdir(),'umbra-worker-'));
 try {

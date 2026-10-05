@@ -29,7 +29,7 @@ let runtime: Awaited<ReturnType<typeof electron.launch>> | undefined;
 const errors: string[] = [];
 async function launch() {
   const packaged = process.env.UMBRA_PACKAGED_EXECUTABLE;
-  runtime = await electron.launch({ executablePath: packaged || process.env.CINESSD_ELECTRON || '/usr/bin/electron',args: packaged ? ['--password-store=basic'] : [path.resolve('.'),'--password-store=basic'],env: Object.fromEntries(Object.entries({ ...process.env,CINESSD_DATA_DIR: config }).filter(([key]) => key.toUpperCase() !== 'ELECTRON_RUN_AS_NODE')),timeout: 60000 });
+  runtime = await electron.launch({ executablePath: packaged || process.env.CINESSD_ELECTRON || '/usr/bin/electron',args: packaged ? ['--password-store=basic'] : [path.resolve('.'),'--password-store=basic',...(process.platform==='linux'?['--ozone-platform=x11']:[])],env: Object.fromEntries(Object.entries({ ...process.env,CINESSD_DATA_DIR: config }).filter(([key]) => key.toUpperCase() !== 'ELECTRON_RUN_AS_NODE')),timeout: 60000 });
   const page = await runtime.firstWindow(); page.on('pageerror',error => errors.push(error.message)); page.on('console',message => { if (message.type() === 'error') errors.push(message.text()); });
   await page.getByRole('button',{ name: 'Umbra, início' }).waitFor(); return page;
 }

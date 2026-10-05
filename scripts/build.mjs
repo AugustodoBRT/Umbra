@@ -1,6 +1,7 @@
 import { build } from 'esbuild';
 import { build as viteBuild } from 'vite';
 import { copyFile, mkdir } from 'node:fs/promises';
+await import('./build-player-host.mjs');
 await build({ entryPoints: ['src/main/main.ts'], bundle: true, platform: 'node', format: 'cjs', target: 'node24', outfile: 'dist/main/main.cjs', external: ['electron'], sourcemap: true });
 await build({ entryPoints: ['src/main/preload.ts'], bundle: true, platform: 'node', format: 'cjs', target: 'node24', outfile: 'dist/main/preload.cjs', external: ['electron'] });
 await viteBuild();

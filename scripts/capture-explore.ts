@@ -10,7 +10,7 @@ const output = path.resolve('assets/screenshots');
 await mkdir(output,{ recursive: true });
 let runtime: Awaited<ReturnType<typeof electron.launch>> | undefined;
 try {
-  runtime = await electron.launch({ executablePath: process.env.CINESSD_ELECTRON || '/usr/bin/electron',args: [path.resolve('.'),'--password-store=basic'],env: Object.fromEntries(Object.entries({ ...process.env,CINESSD_DATA_DIR: config }).filter(([key]) => key.toUpperCase() !== 'ELECTRON_RUN_AS_NODE')),timeout: 60000 });
+  runtime = await electron.launch({ executablePath: process.env.CINESSD_ELECTRON || '/usr/bin/electron',args: [path.resolve('.'),'--password-store=basic',...(process.platform==='linux'?['--ozone-platform=x11']:[])],env: Object.fromEntries(Object.entries({ ...process.env,CINESSD_DATA_DIR: config }).filter(([key]) => key.toUpperCase() !== 'ELECTRON_RUN_AS_NODE')),timeout: 60000 });
   const page = await runtime.firstWindow();
   await page.getByRole('button',{ name: 'Umbra, início' }).waitFor();
   // Leave just the catalog enabled: this capture never consults download providers.

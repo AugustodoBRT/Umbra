@@ -18,7 +18,7 @@ jobs:
           node-version: '24'
           cache: npm
       - name: Install media tools
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg python3-libtorrent python-is-python3 xvfb
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg mpv libx11-dev cmake python3-libtorrent python-is-python3 xvfb
       - run: npm ci
       - name: Prepare Electron runtime
         run: node -p "require('electron')"
@@ -28,6 +28,7 @@ jobs:
         run: xvfb-run -a npm run test:player
         env:
           CINESSD_ELECTRON: ./node_modules/electron/dist/electron
+          CINESSD_CAPTURE_VIRTUAL_SCREEN: '1'
       - name: Test catalog and history in Electron
         run: xvfb-run -a npm run test:desktop
         env:
@@ -66,11 +67,13 @@ jobs:
         run: npm run test:windows
         env:
           DEBUG: pw:browser
+          CINESSD_CAPTURE_VIRTUAL_SCREEN: '1'
       - name: Checksums
         shell: pwsh
         run: |
           Get-ChildItem release\Umbra-*.exe | ForEach-Object { "{0}  {1}" -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower(), $_.Name } | Set-Content -Encoding utf8 release\SHA256SUMS.txt
           Copy-Item packaging\windows\cache\ffmpeg.zip release\ffmpeg-9.0.2-win64-original.zip
+          Copy-Item packaging\windows\cache\mpv.7z release\mpv-20261004-win64-original.7z
       - uses: actions/upload-artifact@v4
         with:
           name: umbra-windows-x64
@@ -78,6 +81,7 @@ jobs:
             release/Umbra-*.exe
             release/SHA256SUMS.txt
             release/ffmpeg-9.0.2-win64-original.zip
+            release/mpv-20261004-win64-original.7z
       - uses: actions/upload-artifact@v4
         if: always()
         with:
