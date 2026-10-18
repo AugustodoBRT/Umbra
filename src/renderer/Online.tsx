@@ -63,6 +63,7 @@ export function OnlinePage({ query,run,onAddons,onDownloads,saved = false }: { q
 
 function OnlineDetail({ initial,run,onClose,onAddons,onDownloads,onPersonal }: { initial: OnlineItem; run: Run; onClose: () => void; onAddons: () => void; onDownloads: () => void; onPersonal: (item: OnlineItem) => void }) {
   const [item,setItem] = useState(initial),[loading,setLoading] = useState(true),[error,setError] = useState(''),[season,setSeason] = useState(0),[videoId,setVideoId] = useState(initial.id),[result,setResult] = useState<SourceResult>({ sources: [],errors: [] }),[sourceLoading,setSourceLoading] = useState(false),[busy,setBusy] = useState(false),[plan,setPlan] = useState<SeasonPlan>();
+  const [playingSourceId,setPlayingSourceId] = useState<string | null>(null);
   const [rating,setRating] = useState(initial.personal.rating === null ? '' : String(initial.personal.rating));
   const [reload,setReload] = useState(0);
   useEffect(() => {
@@ -85,14 +86,31 @@ function OnlineDetail({ initial,run,onClose,onAddons,onDownloads,onPersonal }: {
       else setPlan(await window.cine.planSeason(item.addonId,item.id,season,source.id));
     }).finally(() => setBusy(false));
   };
+  const playSource = (source: OnlineSource) => {
+    setPlayingSourceId(source.id);
+    setError('');
+    const video = item.type === 'series' ? item.videos.find(v => v.id === videoId) : undefined;
+    const title = video
+      ? `${item.name} - S${String(video.season).padStart(2,'0')}E${String(video.episode).padStart(2,'0')}${video.title ? ` · ${video.title}` : ''}`
+      : `${item.name}${item.year ? ` (${item.year})` : ''}`;
+    void run(async () => {
+      await window.cine.playOnlineSource(source.id, title);
+      onClose();
+    }).catch(err => {
+      setError(cleanError(err));
+    }).finally(() => {
+      setPlayingSourceId(null);
+    });
+  };
   return <Modal title={`Detalhes online de ${item.name}`} onClose={onClose} wide><div className="online-detail">
     <div className="online-detail-hero" style={item.background ? { backgroundImage: `linear-gradient(0deg,#111310 5%,#11131070),url("${item.background}")` } : undefined}><span className="eyebrow">{item.type === 'movie' ? 'FILME' : 'SÉRIE'} · CATÁLOGO ONLINE</span><h1>{item.name}</h1><p className="muted">{item.year} {item.genres.length ? ` · ${item.genres.join(' · ')}` : ''}</p><div className="online-personal"><button className={`button secondary ${item.personal.watchlist ? 'selected' : ''}`} onClick={() => personal({ watchlist: !item.personal.watchlist })}><Bookmark size={16}/>{item.personal.watchlist ? 'Na minha lista online' : 'Minha lista online'}</button><label>Minha nota<select aria-label="Minha nota online" value={rating} onChange={e => { setRating(e.target.value); personal({ rating: e.target.value ? Number(e.target.value) : null }); }}><option value="">Não avaliado</option>{Array.from({ length: 20 },(_,i) => (i+1)/2).map(n => <option key={n} value={n}>{n.toFixed(1)}</option>)}</select></label>{item.imdbRating !== null && <span className="online-score"><Star size={16}/>IMDb {item.imdbRating.toFixed(1)}</span>}</div></div>
     <div className="online-detail-body"><h3>Sobre esta história</h3><p className="online-synopsis">{item.description || 'Este catálogo não informou uma sinopse.'}</p>{!loading && item.translationNote && <p className="muted translation-note">{item.translationNote}</p>}{error && <div className="inline-note" role="alert">{error}</div>}
     {loading ? <div className="online-loading"><LoaderCircle size={22} className="spin"/>Carregando detalhes…</div> : <>
-      <div className="section-heading"><div><span className="eyebrow">ESCOLHA DE ONDE BAIXAR</span><h2>{item.type === 'movie' ? 'Fontes de download' : 'Baixar uma temporada'}</h2></div><button className="button secondary" disabled={busy || sourceLoading} onClick={() => setReload(n => n+1)}><RefreshCw size={16}/>Buscar fontes</button></div>
-      {item.type === 'series' && <><div className="catalog-toolbar"><label>Temporada<select aria-label="Temporada para baixar" value={season} onChange={e => { const value = Number(e.target.value); setSeason(value); setVideoId(item.videos.find(v => v.season === value)!.id); }}>{seasons.map(n => <option key={n} value={n}>{n === 0 ? 'Especiais' : `Temporada ${n}`}</option>)}</select></label><label>Episódio usado para escolher a fonte<select aria-label="Episódio de referência" value={videoId} onChange={e => setVideoId(e.target.value)}>{videos.map(v => <option key={v.id} value={v.id}>E{String(v.episode).padStart(2,'0')} · {v.title}</option>)}</select></label></div><p className="muted online-season-note">Escolha uma fonte abaixo. O Umbra procura os {videos.length} episódios desta temporada e mostra a revisão antes de baixar. Imagens e sinopses dos episódios ficam ocultas aqui para evitar spoilers.</p></>}
+      <div className="section-heading"><div><span className="eyebrow">ESCOLHA DE ONDE BAIXAR OU ASSISTIR</span><h2>{item.type === 'movie' ? 'Opções da história' : 'Opções da temporada'}</h2></div><button className="button secondary" disabled={busy || sourceLoading || !!playingSourceId} onClick={() => setReload(n => n+1)}><RefreshCw size={16}/>Buscar fontes</button></div>
+      {item.type === 'series' && <><div className="catalog-toolbar"><label>Temporada<select aria-label="Temporada para baixar" value={season} onChange={e => { const value = Number(e.target.value); setSeason(value); setVideoId(item.videos.find(v => v.season === value)!.id); }}>{seasons.map(n => <option key={n} value={n}>{n === 0 ? 'Especiais' : `Temporada ${n}`}</option>)}</select></label><label>Episódio usado para escolher a fonte<select aria-label="Episódio de referência" value={videoId} onChange={e => setVideoId(e.target.value)}>{videos.map(v => <option key={v.id} value={v.id}>E{String(v.episode).padStart(2,'0')} · {v.title}</option>)}</select></label></div><p className="muted online-season-note">Escolha uma fonte abaixo para assistir agora ou baixar. Para séries, o Umbra procura os {videos.length} episódios desta temporada ao baixar. Imagens e sinopses dos episódios ficam ocultas aqui para evitar spoilers.</p></>}
       {result.errors.map((message,index) => <div className="inline-note" key={index}>{message}</div>)}
-      {sourceLoading ? <div className="online-loading" role="status"><LoaderCircle className="spin" size={24}/>Consultando complementos…</div> : result.sources.length ? <><p className="source-data-note">Detalhes anunciados pelo complemento. As faixas do vídeo são confirmadas após o download.</p><div className="download-sources">{result.sources.map(source => <SourceCard key={source.id} source={source} busy={busy} movie={item.type === 'movie'} onChoose={() => choose(source)}/>)}</div></> : <Empty icon={<Puzzle size={29}/>} title="Nenhuma fonte encontrada." text="Confira os complementos instalados, tente outro episódio ou adicione um provedor de fontes." action={<button className="button secondary" onClick={onAddons}><Plus size={16}/>Ver complementos</button>}/>}
+      {playingSourceId && <div className="inline-note" role="status"><LoaderCircle size={17} className="spin"/>Iniciando reprodução da fonte selecionada…</div>}
+      {sourceLoading ? <div className="online-loading" role="status"><LoaderCircle className="spin" size={24}/>Consultando complementos…</div> : result.sources.length ? <><p className="source-data-note">Detalhes anunciados pelo complemento. As faixas do vídeo são confirmadas após o início ou download.</p><div className="download-sources">{result.sources.map(source => <SourceCard key={source.id} source={source} busy={busy || playingSourceId !== null} playing={playingSourceId === source.id} movie={item.type === 'movie'} onChoose={() => choose(source)} onPlay={() => playSource(source)}/>)}</div></> : <Empty icon={<Puzzle size={29}/>} title="Nenhuma fonte encontrada." text="Confira os complementos instalados, tente outro episódio ou adicione um provedor de fontes." action={<button className="button secondary" onClick={onAddons}><Plus size={16}/>Ver complementos</button>}/>}
       {busy && item.type === 'series' && <div className="inline-note" role="status"><LoaderCircle size={17} className="spin"/>Buscando os episódios da temporada na fonte escolhida…</div>}
     </>}
     </div></div>{plan && <SeasonReview plan={plan} run={run} onClose={() => setPlan(undefined)} onDownloads={onDownloads}/>}</Modal>;

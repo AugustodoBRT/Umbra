@@ -166,3 +166,22 @@ test('motor torrent real pausa, retoma e baixa só o episódio solicitado de um 
     assert.deepEqual(await readFile(path.join(destination,'Show - S01E02.mkv')),second); assert.deepEqual((await readdir(destination,{ recursive: true })).filter(file => file.endsWith('.mkv')),['Show - S01E02.mkv']); assert.ok(events.some(e => e.event === 'resume'));
   } finally { worker?.kill(); seeder.kill(); await rm(directory,{ recursive: true,force: true }); }
 });
+
+test('getStreamForSource resolve fonte para streaming e distingue torrent de http', async () => {
+  const f = await fixture();
+  try {
+    await f.addons.meta(f.addonId,'series','test:series');
+    const result = await f.addons.sources(f.addonId,'series','test:series','test:series:4:1');
+    assert.equal(result.sources.length,2);
+    const torrentSource = result.sources.find(s => s.transport === 'torrent')!;
+    const httpSource = result.sources.find(s => s.transport === 'http')!;
+    
+    const torrentBound = f.addons.getStreamForSource(torrentSource.id);
+    assert.equal(torrentBound.summary.id, torrentSource.id);
+    assert.ok(torrentBound.raw.infoHash);
+    
+    const httpBound = f.addons.getStreamForSource(httpSource.id);
+    assert.equal(httpBound.summary.id, httpSource.id);
+    assert.ok(httpBound.raw.url);
+  } finally { await f.close(); }
+});

@@ -1,6 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { writeFile,rm } from 'node:fs/promises';
+import { writeFile,rm,mkdtemp,stat } from 'node:fs/promises';
+import { createReadStream } from 'node:fs';
+import { createServer } from 'node:http';
+import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { library,until,media } from './helpers';
@@ -50,3 +53,86 @@ test('failed mpv or surface startup closes the session without hanging, allowing
   assert.ok(store.detail(store.works()[0].id).sessions!.every(x=>x.endedAt));
  }finally{await store.close();await rm(root,{recursive:true,force:true});}
 });
+
+test('playStream plays HTTP streaming directly without Store, manages events, and executes onStop on teardown',async () => {
+  const dir = await mkdtemp(path.join(tmpdir(),'stream-test-'));
+  const filePath = path.join(dir,'video.mp4');
+  media(filePath,'teal',4);
+  const size = (await stat(filePath)).size;
+  const server = createServer((req,res) => {
+    const range = req.headers.range;
+    if (range) {
+      const match = /^bytes=(\d*)-(\d*)$/.exec(range);
+      const start = match?.[1] ? Number(match[1]) : 0;
+      const end = match?.[2] ? Number(match[2]) : size-1;
+      res.writeHead(206,{
+        'Content-Range': `bytes ${start}-${end}/${size}`,
+        'Accept-Ranges': 'bytes',
+        'Content-Length': end-start+1,
+        'Content-Type': 'video/mp4'
+      });
+      createReadStream(filePath,{ start,end }).pipe(res);
+    } else {
+      res.writeHead(200,{
+        'Content-Length': size,
+        'Content-Type': 'video/mp4',
+        'Accept-Ranges': 'bytes'
+      });
+      createReadStream(filePath).pipe(res);
+    }
+  });
+  await new Promise<void>(resolve => server.listen(0,'127.0.0.1',resolve));
+  const port = (server.address() as any).port;
+  const url = `http://127.0.0.1:${port}/video.mp4`;
+
+  let stopped = false;
+  let playerStateHistory: any[] = [];
+  const player = new NativePlayer(
+    state => playerStateHistory.push({ ...state }),
+    { mpv: mpvTool(),host: '',parent: () => '0',appearance: () => defaultSubtitleAppearance,input: () => {},headless: true }
+  );
+
+  try {
+    await player.playStream(url,'Transmissão Ao Vivo',{
+      streamId: 'stream-test-42',
+      onStop: () => { stopped = true; }
+    });
+
+    assert.equal(player.state.engine,'mpv');
+    assert.equal(player.state.active,true);
+    assert.equal(player.state.title,'Transmissão Ao Vivo');
+    assert.equal(player.state.fileId,'stream-test-42');
+
+    await until(() => !!player.state.video && player.state.duration > 0);
+    assert.ok(player.state.duration > 3);
+    assert.ok(player.state.tracks.length > 0);
+
+    await until(() => !player.state.paused);
+    // Test pause / unpause
+    await player.control('pause');
+    await until(() => player.state.paused === true);
+    assert.equal(player.state.paused,true);
+    await player.control('pause');
+    await until(() => player.state.paused === false);
+    assert.equal(player.state.paused,false);
+
+    // Test volume and mute
+    await player.control('volume',65);
+    assert.equal(player.state.volume,65);
+    await player.control('mute',true);
+    assert.equal(player.state.mute,true);
+    await player.control('mute',false);
+    assert.equal(player.state.mute,false);
+
+    // Test stop executes onStop
+    assert.equal(stopped,false);
+    await player.stop();
+    assert.equal(stopped,true);
+    assert.equal(player.state.active,false);
+  } finally {
+    await player.stop();
+    server.close();
+    await rm(dir,{ recursive: true,force: true });
+  }
+});
+

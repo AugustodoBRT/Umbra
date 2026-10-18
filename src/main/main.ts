@@ -10,6 +10,7 @@ import { loadComputerConfig, saveComputerConfig, rememberedManifest, type Comput
 import { OnlineStore } from '../storage/online';
 import { Addons } from '../online/addons';
 import { Downloads } from '../downloads/downloads';
+import { TorrentStreamer } from '../downloads/streamer';
 import { Scanner } from '../library/scanner';
 import { NativePlayer } from '../playback/native';
 import { mediaTool, torrentWorker, mpvTool, playerHost } from '../runtime/tools';
@@ -35,6 +36,15 @@ let credentials: Credentials;
 let onlineStore: OnlineStore;
 let addons: Addons;
 let downloads: Downloads;
+let streamer: TorrentStreamer | undefined;
+function getStreamer(): TorrentStreamer {
+  if (!streamer) {
+    const isPackaged = typeof app !== 'undefined' && app?.isPackaged;
+    const worker = process.platform === 'win32' && isPackaged ? torrentWorker() : undefined;
+    streamer = new TorrentStreamer(worker ? { workerPath: worker } : undefined);
+  }
+  return streamer;
+}
 let pendingDownloadScan = false;
 let startupError: string | undefined;
 let identification = emptyIdentification();
@@ -214,6 +224,33 @@ function handlers() {
   register('personal',async (id,value) => { (await requireStore()).savePersonal(idSchema.parse(id),personalSchema.parse(value)); emit({ type: 'changed' }); });
   register('edit',async (id,value) => { (await requireStore()).edit(idSchema.parse(id),editSchema.parse(value)); emit({ type: 'changed' }); });
   register('play',async (id,restart) => { await player.play(await requireStore(),idSchema.parse(id),z.boolean().optional().parse(restart)); },true);
+  register('playOnlineSource',async (sourceId,title) => {
+    const parsedId = idSchema.parse(sourceId);
+    const parsedTitle = z.string().trim().max(500).optional().parse(title);
+    const bound = addons.getStreamForSource(parsedId);
+    const playTitle = parsedTitle || (bound.video ? `${bound.item.name} - S${String(bound.video.season).padStart(2,'0')}E${String(bound.video.episode).padStart(2,'0')}` : bound.item.name) || bound.summary.name;
+    if (bound.raw.infoHash) {
+      const currentStreamer = getStreamer();
+      const result = await currentStreamer.startStream({
+        infoHash: bound.raw.infoHash,
+        fileIdx: bound.raw.fileIdx,
+        sources: bound.raw.sources,
+      });
+      try {
+        await player.playStream(result.url, playTitle, {
+          streamId: parsedId,
+          onStop: () => currentStreamer.stopStream(),
+        });
+      } catch (error) {
+        await currentStreamer.stopStream().catch(() => {});
+        throw error;
+      }
+    } else if (bound.raw.url) {
+      await player.playStream(bound.raw.url, playTitle, { streamId: parsedId });
+    } else {
+      throw new Error('Esta fonte não possui endereço de streaming nem torrent válido.');
+    }
+  },true);
   register('control',async (action,value) => {
     const name = z.enum(['stop','pause','seek','volume','speed','audio','subtitle','subtitleDelay','fullscreen']).parse(action);
     if(name==='subtitleDelay') value=z.number().finite().min(-30).max(30).parse(value);
@@ -354,6 +391,6 @@ if (!hasLock) app.quit(); else {
     if (shuttingDown) return;
     event.preventDefault(); shuttingDown = true; if (monitor) clearInterval(monitor);
     addons?.cancel();
-    void (downloads?.close() ?? Promise.resolve()).catch(() => {}).then(() => disconnect()).finally(() => { onlineStore?.close(); app.quit(); });
+    void (downloads?.close() ?? Promise.resolve()).catch(() => {}).then(() => streamer?.stopStream()).catch(() => {}).then(() => disconnect()).finally(() => { onlineStore?.close(); app.quit(); });
   });
 }

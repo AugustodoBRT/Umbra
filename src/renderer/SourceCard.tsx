@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Download, LoaderCircle, Headphones, Captions, Languages, HardDrive, Users, Globe2, ChevronDown } from 'lucide-react';
+import { Download, LoaderCircle, Headphones, Captions, Languages, HardDrive, Users, Globe2, ChevronDown, Play } from 'lucide-react';
 import type { OnlineSource, SourceLanguage } from '../shared/online';
 import { readableSourceText, sourceDetails } from '../shared/sourceDetails';
 
@@ -11,7 +11,21 @@ function LanguageList({ languages }: { languages: SourceLanguage[] }) {
     return <span className="source-language" key={language.code}>{flag ? <img src={flag} alt="" className="source-flag"/> : <Globe2 size={12} aria-hidden="true"/>}{language.label}</span>;
   })}{languages.length > 4 && <button className="source-language-more" type="button" aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>{expanded ? 'Mostrar menos' : `+${languages.length-4} idiomas`}</button>}</div>;
 }
-export function SourceCard({ source, busy, movie, onChoose }: { source: OnlineSource; busy: boolean; movie: boolean; onChoose: () => void }) {
+export function SourceCard({
+  source,
+  busy,
+  playing,
+  movie,
+  onChoose,
+  onPlay,
+}: {
+  source: OnlineSource;
+  busy: boolean;
+  playing?: boolean;
+  movie: boolean;
+  onChoose: () => void;
+  onPlay?: () => void;
+}) {
   const details = source.details ?? sourceDetails({ name: source.name,description: source.description });
   const heading = readableSourceText(source.name.split('\n')[0]) || source.addonName;
   return <article className="download-source source-card" aria-label={`Fonte ${heading}`}>
@@ -33,7 +47,16 @@ export function SourceCard({ source, busy, movie, onChoose }: { source: OnlineSo
     </tbody></table>
     <div className="source-card-footer">
       <details className="source-original"><summary><ChevronDown size={14} aria-hidden="true"/>Informações originais</summary><p>{readableSourceText(source.description) || 'O complemento não forneceu uma descrição.'}</p></details>
-      <button className="button primary" disabled={busy} onClick={onChoose}>{busy ? <LoaderCircle size={16} className="spin"/> : <Download size={16}/>} {movie ? 'Baixar filme' : 'Usar para a temporada'}</button>
+      <div className="source-card-actions">
+        {onPlay && (
+          <button className="button primary" disabled={busy || playing} onClick={onPlay}>
+            {playing ? <LoaderCircle size={16} className="spin"/> : <Play size={16} fill="currentColor"/>} Assistir agora
+          </button>
+        )}
+        <button className={onPlay ? "button secondary" : "button primary"} disabled={busy || playing} onClick={onChoose}>
+          {busy ? <LoaderCircle size={16} className="spin"/> : <Download size={16}/>} {movie ? 'Baixar filme' : 'Usar para a temporada'}
+        </button>
+      </div>
     </div>
   </article>;
 }

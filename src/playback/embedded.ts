@@ -9,7 +9,7 @@ import type { Store } from '../storage/store';
 import { existingPath } from '../library/paths';
 import { mediaTool } from '../runtime/tools';
 
-export const emptyPlayer = (): PlayerState => ({ active: false,fileId: null,title: '',position: 0,duration: 0,paused: false,volume: 80,speed: 1,tracks: [],audio: 'auto',subtitle: 'no',fullscreen: false });
+export const emptyPlayer = (): PlayerState => ({ active: false,fileId: null,title: '',position: 0,duration: 0,paused: false,volume: 80,speed: 1,tracks: [],audio: 'auto',subtitle: 'no',fullscreen: false,mute: false });
 const bitmap = new Set(['hdmv_pgs_subtitle','dvd_subtitle','dvb_subtitle','xsub']);
 const mime = 'video/mp4';
 export class EmbeddedPlayer {

@@ -137,6 +137,7 @@ export class Addons {
   }
   saved() { return this.store.saved().map(item => this.expose(item)); }
   source(id: string) { const source = this.references.get(id); if (!source || !this.get(source.summary.addonId).enabled) throw new Error('Esta fonte expirou. Busque as opções novamente.'); return source; }
+  getStreamForSource(sourceId: string): BoundSource { return this.source(sourceId); }
   async sources(addonId: string,type: OnlineType,id: string,videoId: string,onlyAddon?: string): Promise<SourceResult> {
     this.get(addonId); const item = this.store.get(type,id);
     const video = item.videos.find(v => v.id === videoId);
@@ -203,3 +204,5 @@ export class Addons {
   }
   cancel() { this.controller.abort(); this.controller = new AbortController(); }
 }
+export type AddonsManager = Addons;
+export const AddonsManager = Addons;

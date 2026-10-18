@@ -50,5 +50,6 @@
 .source-original summary::-webkit-details-marker{display:none}
 .source-original[open] summary svg{transform:rotate(180deg)}
 .source-original>p{white-space:pre-line;overflow-wrap:anywhere;margin-top:10px;font-size:10px;line-height:1.8;color:#99a59e}
-.source-card-footer>.button{flex-shrink:0;margin:0}
-@media(max-width:800px){.download-source.source-card{padding:18px}.source-tracks th{width:135px;padding-right:10px}.source-card-footer{flex-wrap:wrap}.source-card-footer>.button{margin-left:auto}.source-card-title h3{font-size:14px}}
+.source-card-footer>.button,.source-card-actions{flex-shrink:0;margin:0}
+.source-card-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+@media(max-width:800px){.download-source.source-card{padding:18px}.source-tracks th{width:135px;padding-right:10px}.source-card-footer{flex-wrap:wrap}.source-card-footer>.button,.source-card-footer>.source-card-actions{margin-left:auto}.source-card-title h3{font-size:14px}}
