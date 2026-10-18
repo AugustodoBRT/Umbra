@@ -1,5 +1,6 @@
 import { app, BrowserWindow, ipcMain, dialog, protocol, net, shell, safeStorage, session } from 'electron';
 import { readFile, writeFile, mkdir, rename, realpath, access } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import path from 'node:path';
@@ -40,8 +41,10 @@ let streamer: TorrentStreamer | undefined;
 function getStreamer(): TorrentStreamer {
   if (!streamer) {
     const isPackaged = typeof app !== 'undefined' && app?.isPackaged;
-    const worker = process.platform === 'win32' && isPackaged ? torrentWorker() : undefined;
-    streamer = new TorrentStreamer(worker ? { workerPath: worker } : undefined);
+    const worker = process.platform === 'win32' && isPackaged
+      ? torrentWorker()
+      : path.join(__dirname, '../torrent-worker.py');
+    streamer = new TorrentStreamer(existsSync(worker) ? { workerPath: worker } : undefined);
   }
   return streamer;
 }

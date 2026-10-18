@@ -46,13 +46,18 @@ function getDirname(): string {
   }
 }
 
-function resolveDefaultWorker(): string {
+export function resolveDefaultWorker(): string {
   const dir = getDirname();
-  const localWorker = path.resolve(dir, 'torrent-worker.py');
-  if (existsSync(localWorker)) return localWorker;
-  const projectWorker = path.resolve(process.cwd(), 'src/downloads/torrent-worker.py');
-  if (existsSync(projectWorker)) return projectWorker;
-  return localWorker;
+  const candidates = [
+    path.resolve(dir, 'torrent-worker.py'),
+    path.resolve(dir, '../torrent-worker.py'),
+    path.resolve(process.cwd(), 'dist/torrent-worker.py'),
+    path.resolve(process.cwd(), 'src/downloads/torrent-worker.py'),
+  ];
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) return candidate;
+  }
+  return path.resolve(dir, 'torrent-worker.py');
 }
 
 export class TorrentStreamer extends EventEmitter {

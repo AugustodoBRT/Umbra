@@ -3,10 +3,10 @@ Version=1.0
 Type=Application
 Name=Umbra
 GenericName=Biblioteca de filmes e séries
-Comment=Seu cinema, onde você estiver
-Exec=umbra
+Comment=Seu cinema onde você estiver. Filmes, séries e streaming de torrents
+Exec=umbra --ozone-platform=x11
 Icon=umbra
 Terminal=false
 Categories=AudioVideo;Video;Player;
-Keywords=Umbra;Cinema;Filmes;Séries;Series;Vídeos;Videos;
+Keywords=Umbra;Cinema;Filmes;Séries;Series;SSD;Vídeos;Videos;Torrents;Streaming;Stremio;
 StartupNotify=true
