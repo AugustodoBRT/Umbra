@@ -32,7 +32,10 @@ export class NativePlayer {
     // Do not let those events immediately reveal controls that just hid.
     this.ignorePointerUntil=performance.now()+250;
     this.bounds=bounds;
-    this.surface?.stdin?.write(`bounds ${Math.round(bounds.x*bounds.scale)} ${Math.round(bounds.y*bounds.scale)} ${Math.max(1,Math.round(bounds.width*bounds.scale))} ${Math.max(1,Math.round(bounds.height*bounds.scale))} ${bounds.visible ? 1 : 0}\n`);
+    // Keep controls accessible in the main window without resizing mpv.
+    const overlays=bounds.overlays ?? [];
+    const cutouts=overlays.map(overlay => ` ${Math.floor(overlay.x*bounds.scale)} ${Math.floor(overlay.y*bounds.scale)} ${Math.ceil((overlay.x+overlay.width)*bounds.scale)-Math.floor(overlay.x*bounds.scale)} ${Math.ceil((overlay.y+overlay.height)*bounds.scale)-Math.floor(overlay.y*bounds.scale)}`).join('');
+    this.surface?.stdin?.write(`bounds ${Math.round(bounds.x*bounds.scale)} ${Math.round(bounds.y*bounds.scale)} ${Math.max(1,Math.round(bounds.width*bounds.scale))} ${Math.max(1,Math.round(bounds.height*bounds.scale))} ${bounds.visible ? 1 : 0} ${overlays.length}${cutouts}\n`);
   }
   private save(ended=false) {
     if(!this.store || this.store.closed || !this.session || !this.state.fileId) return;

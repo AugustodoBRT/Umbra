@@ -238,10 +238,55 @@ input, select, textarea { background: #10130e; border-color: #36402d; border-rad
 html:has(.embedded-player:not(.minimized)),body:has(.embedded-player:not(.minimized)){overflow:hidden;overscroll-behavior:none;scrollbar-gutter:auto}
 .embedded-player{overflow:hidden}
 .embedded-player-controls{position:relative}
-.subtitle-settings{position:absolute;right:28px;bottom:calc(100% + 12px);width:min(340px,calc(100vw - 40px));max-height:calc(100vh - 210px);overflow:auto;display:flex;flex-direction:column;gap:14px;padding:20px;border:1px solid #536346;border-radius:10px;background:#10130ff5;box-shadow:0 12px 45px #000a;color:var(--text)}
-.subtitle-settings-heading{display:flex;align-items:center;justify-content:space-between;gap:16px}.subtitle-settings-heading strong{font-size:15px;font-weight:500}
-.subtitle-settings>label{display:flex;align-items:center;flex-wrap:wrap;gap:10px;font-size:12px}.subtitle-settings output{margin-left:auto;color:var(--accent);font:11px var(--mono)}.subtitle-settings input[type=range]{width:100%;accent-color:var(--accent)}.subtitle-settings select{margin-left:auto;font-size:12px;padding:7px}.subtitle-color input{margin-left:auto;width:48px;height:30px;padding:2px;border:1px solid #536346;cursor:pointer;background:transparent}.subtitle-settings input[type=checkbox]{accent-color:var(--accent)}
-.subtitle-preview{padding:12px 8px;text-align:center;line-height:1.35;border-radius:5px}.subtitle-settings>small{color:var(--muted);font-size:11px;line-height:1.6}.subtitle-settings>.button{align-self:flex-start;font-size:11px}
+/* One subtitle menu for language, track selection and appearance. */
+.embedded-player{--subtitle-panel-width:480px}
+.subtitle-trigger{display:flex;align-items:center;gap:9px;min-height:36px;max-width:190px;padding:8px 11px;border:1px solid var(--line);border-radius:6px;background:transparent;color:var(--muted);font-size:11px;cursor:pointer}
+.subtitle-trigger>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.subtitle-trigger>svg,.subtitle-active-dot{flex-shrink:0}
+.subtitle-trigger:hover,.subtitle-trigger[aria-expanded=true]{background:var(--panel-light);border-color:#536346;color:var(--paper)}
+.subtitle-trigger.active>svg{color:var(--accent)}
+.subtitle-active-dot{display:block;width:6px;height:6px;border-radius:50%;background:var(--accent)}
+.subtitle-settings{position:absolute;right:20px;bottom:calc(100% + 12px);z-index:2;width:min(var(--subtitle-panel-width),calc(100vw - 40px));max-height:calc(100vh - 190px);display:flex;flex-direction:column;gap:16px;padding:18px;border:1px solid #3b4532;border-radius:12px;background:#11140ffb;box-shadow:0 16px 60px #0009;color:var(--paper);overflow:hidden}
+.subtitle-settings-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-shrink:0}
+.subtitle-settings-heading>span{display:flex;align-items:center;gap:10px}
+.subtitle-settings-heading>span>svg{color:var(--accent)}
+.subtitle-settings-heading strong{font-size:15px;font-weight:550}
+.subtitle-tabs{display:flex;gap:5px;padding:4px;border-radius:8px;background:#ffffff05;flex-shrink:0}
+.subtitle-tabs>button{display:flex;align-items:center;justify-content:center;gap:8px;flex:1;padding:9px 12px;border:0;border-radius:5px;background:transparent;color:var(--muted);font-size:12px;cursor:pointer}
+.subtitle-tabs>button:hover{color:var(--paper)}
+.subtitle-tabs>button[aria-selected=true]{background:#2a3122;color:var(--paper)}
+.subtitle-tabs>button[aria-selected=true]>svg{color:var(--accent)}
+.subtitle-tab-content{min-height:0;overflow:auto;overscroll-behavior:contain}
+.subtitle-picker{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.2fr);gap:14px;min-height:220px}
+.subtitle-picker h3{margin:2px 0 12px;padding:0 10px;font-size:11px;font-weight:500;color:var(--muted)}
+.subtitle-language-column{padding-right:12px;border-right:1px solid var(--line)}
+.subtitle-options{display:flex;flex-direction:column;gap:5px;max-height:250px;overflow:auto;scrollbar-width:thin}
+.subtitle-options>button{display:flex;align-items:center;gap:12px;width:100%;padding:13px 10px;border:1px solid transparent;border-radius:7px;background:transparent;color:var(--paper);font-size:12px;text-align:left;cursor:pointer}
+.subtitle-options>button:hover{background:#ffffff06}
+.subtitle-options>button[aria-pressed=true]{background:#23291d;border-color:#d7f86a16}
+.subtitle-language>span{flex:1;overflow-wrap:anywhere}
+.subtitle-language>small{font:10px var(--mono);color:var(--muted)}
+.subtitle-options>button>svg{flex-shrink:0;color:var(--accent)}
+.subtitle-variant>span{flex:1;min-width:0}
+.subtitle-variant strong{display:block;font-size:12px;font-weight:500;overflow-wrap:anywhere;line-height:1.5}
+.subtitle-variant small{display:block;margin-top:4px;font-size:10px;color:var(--muted);line-height:1.5}
+.subtitle-empty{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;min-height:160px;padding:20px 10px;color:var(--muted);text-align:center}
+.subtitle-empty>svg{opacity:.45}
+.subtitle-empty>p{font-size:12px;line-height:1.7;margin:0}
+.subtitle-panel-note{margin:16px 0 0;padding:14px 2px 0;border-top:1px solid var(--line);font-size:10px;line-height:1.6;color:var(--muted)}
+.subtitle-appearance-form{display:flex;flex-direction:column;gap:18px}
+.subtitle-preview{display:flex;align-items:center;justify-content:center;min-height:70px;padding:12px 16px;text-align:center;line-height:1.35;border:1px solid #ffffff08;border-radius:7px;overflow-wrap:anywhere}
+.subtitle-appearance-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px 20px}
+.subtitle-appearance-grid>label{display:flex;align-items:center;flex-wrap:wrap;gap:8px;font-size:11px;color:var(--muted)}
+.subtitle-appearance-grid output{margin-left:auto;color:var(--accent);font:10px var(--mono)}
+.subtitle-appearance-grid input[type=range]{width:100%;accent-color:var(--accent);margin:0}
+.subtitle-appearance-grid select{margin-left:auto;min-width:0;font-size:11px;padding:7px;max-width:130px}
+.subtitle-color input{margin-left:auto;width:42px;height:30px;padding:2px;border:1px solid #536346;cursor:pointer;background:transparent}
+.subtitle-outline,.subtitle-delay{grid-column:1/-1}
+.subtitle-outline input{margin:0;accent-color:var(--accent)}
+.subtitle-appearance-footer{display:flex;align-items:center;justify-content:space-between;gap:16px;padding-top:14px;border-top:1px solid var(--line)}
+.subtitle-appearance-footer>small{font-size:10px;color:var(--muted);line-height:1.6}
+.subtitle-appearance-footer>.text-button{flex-shrink:0;font-size:10px}
 .embedded-player.fullscreen .embedded-video-stage{position:absolute;inset:0}
 .embedded-player.fullscreen .embedded-player-heading,.embedded-player.fullscreen .embedded-player-controls{position:absolute;left:0;right:0;z-index:1;border:0;opacity:1;transition:opacity .2s ease}
 .embedded-player.fullscreen .embedded-player-heading{top:0;padding-bottom:42px;background:linear-gradient(#000c,#0006 60%,transparent)}
@@ -251,10 +296,6 @@ html:has(.embedded-player:not(.minimized)),body:has(.embedded-player:not(.minimi
 .embedded-player.fullscreen.controls-hidden .embedded-player-heading,.embedded-player.fullscreen.controls-hidden .embedded-player-controls{opacity:0;pointer-events:none}
 @media(prefers-reduced-motion:reduce){.embedded-player.fullscreen .embedded-player-heading,.embedded-player.fullscreen .embedded-player-controls{transition:none}}
 
-/* A native child occupies only the video area, leaving web controls accessible. */
+/* Keep the native video full size. Web controls use cutouts in this same window. */
 .native-video-surface{width:100%;height:100%;min-height:0;background:#000}
-.native-player.fullscreen .embedded-video-stage{position:relative;inset:auto}
-.native-player.fullscreen .embedded-player-heading,.native-player.fullscreen .embedded-player-controls{position:relative;inset:auto;padding:20px 28px;background:#10130f;flex-shrink:0}
-.native-player.fullscreen.controls-hidden .embedded-player-heading,.native-player.fullscreen.controls-hidden .embedded-player-controls{display:none}
-.native-player.appearance-open .embedded-video-stage{margin-right:380px}
-.native-player.minimized.appearance-open .embedded-video-stage{margin-right:0;visibility:hidden}
+.native-player.fullscreen .embedded-player-heading,.native-player.fullscreen .embedded-player-controls{padding:20px 28px;background:#10130f;transition:none}

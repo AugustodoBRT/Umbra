@@ -12,7 +12,7 @@ export interface RemovalPreview { id: string; title: string; kind: 'movie'|'seri
 export interface RemovalResult { keptHistory: boolean; cleanupPending: boolean }
 export interface PlaybackSession { id: string; fileId: string; startedAt: string; endedAt: string | null; watchedSeconds: number; endPosition: number }
 export interface ScanProgress { running: boolean; phase: 'discovering' | 'inspecting' | 'done'; total: number; processed: number; added: number; updated: number; missing: number; current: string; errors: string[]; cancelled: boolean }
-export interface PlayerBounds { x: number; y: number; width: number; height: number; scale: number; visible: boolean }
+export interface PlayerBounds { x: number; y: number; width: number; height: number; scale: number; visible: boolean; overlays?: { x: number; y: number; width: number; height: number }[] }
 export interface PlayerState { active: boolean; fileId: string | null; title: string; position: number; duration: number; paused: boolean; volume: number; speed: number; tracks: MediaTrack[]; audio: number | string; subtitle: number | string; fullscreen: boolean; engine?: 'mpv'; loading?: boolean; subtitleDelay?: number; video?: { width: number; height: number; codec: string; pixelFormat: string; hardware: string }; error?: string; source?: { token: string; mode: 'file'|'stream'; url: string; start: number; subtitleUrl?: string } }
 export interface Candidate { id: number; kind: 'movie' | 'series'; title: string; originalTitle: string; year: number | null; overview: string; poster: string | null; confidence: number }
 export interface CustomList { id: string; name: string; workIds: string[] }

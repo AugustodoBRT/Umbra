@@ -224,9 +224,11 @@ function handlers() {
   });
   register('playbackReport',async () => { throw new Error('O progresso agora vem diretamente do motor mpv.'); });
   register('playerBounds',async value => {
-    const bounds=z.object({x:z.number().finite().min(0),y:z.number().finite().min(0),width:z.number().finite().min(0).max(32768),height:z.number().finite().min(0).max(32768),scale:z.number().finite().min(.25).max(8),visible:z.boolean()}).parse(value);
+    const rectangle=z.object({x:z.number().finite().min(0).max(32768),y:z.number().finite().min(0).max(32768),width:z.number().finite().min(0).max(32768),height:z.number().finite().min(0).max(32768)});
+    const bounds=rectangle.extend({scale:z.number().finite().min(.25).max(8),visible:z.boolean(),overlays:z.array(rectangle).max(8).optional()}).parse(value);
     const [width,height]=window.getContentSize();
     if(bounds.x+bounds.width>width+2 || bounds.y+bounds.height>height+2) return;
+    if(bounds.overlays?.some(overlay => overlay.x+overlay.width>bounds.width+2 || overlay.y+overlay.height>bounds.height+2)) return;
     player.boundsChanged(bounds);
   });
   register('reveal',async id => { const current = await requireStore(); const file = current.file(idSchema.parse(id)); shell.showItemInFolder(await existingPath(current.root,file.path)); });

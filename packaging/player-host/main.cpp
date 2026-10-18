@@ -1,5 +1,5 @@
 // Own only the native child surface. mpv handles decoding, GPU output and input.
-// Protocol: stdin "bounds x y width height visible" / "quit"; stdout child handle.
+// Protocol: stdin "bounds x y width height visible [count x y w h ...]" / "quit"; stdout child handle.
 #include <atomic>
 #include <chrono>
 #include <cstdio>
@@ -10,13 +10,16 @@
 #include <sstream>
 #include <string>
 #include <thread>
+#include <vector>
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #else
 #include <X11/Xlib.h>
+#include <X11/extensions/shape.h>
 #endif
-struct Bounds { int x=0,y=0,w=1,h=1; bool visible=false,dirty=false; };
+struct Rectangle { int x,y,w,h; };
+struct Bounds { int x=0,y=0,w=1,h=1; bool visible=false,dirty=false; std::vector<Rectangle> overlays; };
 int main(int argc, char** argv) {
   if (argc != 2) return 2;
   const auto parent = std::strtoull(argv[1],nullptr,10);
@@ -31,6 +34,8 @@ int main(int argc, char** argv) {
   std::cout << (uintptr_t)child << std::endl;
 #else
   Display* display=XOpenDisplay(nullptr); if (!display) return 3;
+  int shapeEvent,shapeError;
+  if(!XShapeQueryExtension(display,&shapeEvent,&shapeError)) { XCloseDisplay(display); return 3; }
   Window child=XCreateSimpleWindow(display,(Window)parent,0,0,1,1,0,0,0);
   XSelectInput(display,child,StructureNotifyMask); XFlush(display);
   std::cout << child << std::endl;
@@ -43,7 +48,19 @@ int main(int argc, char** argv) {
       if(line=="quit") break;
       std::istringstream input(line); std::string action; int x,y,w,h,visible;
       if(input>>action>>x>>y>>w>>h>>visible && action=="bounds" && w>0 && h>0 && w<=32768 && h<=32768) {
-        std::lock_guard<std::mutex> lock(mutex); bounds={x,y,w,h,visible!=0,true};
+        Bounds next{x,y,w,h,visible!=0,true};
+        int count=0;
+        if(input>>count) {
+          if(count<0 || count>8) continue;
+          bool valid=true;
+          for(int i=0;i<count;i++) {
+            Rectangle overlay;
+            if(!(input>>overlay.x>>overlay.y>>overlay.w>>overlay.h) || overlay.x<0 || overlay.y<0 || overlay.w<=0 || overlay.h<=0 || overlay.x>w || overlay.y>h || overlay.w>w-overlay.x+2 || overlay.h>h-overlay.y+2) { valid=false; break; }
+            next.overlays.push_back(overlay);
+          }
+          if(!valid) continue;
+        }
+        std::lock_guard<std::mutex> lock(mutex); bounds=next;
       }
     }
     done=true;
@@ -52,10 +69,27 @@ int main(int argc, char** argv) {
     Bounds current; { std::lock_guard<std::mutex> lock(mutex); current=bounds; bounds.dirty=false; }
     if(current.dirty) {
 #ifdef _WIN32
+      if(!current.overlays.empty()) {
+        HRGN region=CreateRectRgn(0,0,current.w,current.h);
+        for(const auto& rect:current.overlays) {
+          HRGN overlay=CreateRectRgn(rect.x,rect.y,rect.x+rect.w,rect.y+rect.h);
+          CombineRgn(region,region,overlay,RGN_DIFF); DeleteObject(overlay);
+        }
+        if(!SetWindowRgn(child,region,TRUE)) DeleteObject(region);
+      } else SetWindowRgn(child,nullptr,TRUE);
       SetWindowPos(child,HWND_TOP,current.x,current.y,current.w,current.h,SWP_NOACTIVATE|(current.visible?SWP_SHOWWINDOW:SWP_HIDEWINDOW));
 #else
       XMoveResizeWindow(display,child,current.x,current.y,current.w,current.h);
-      if(current.visible) XMapWindow(display,child); else XUnmapWindow(display,child);
+      // A bounding shape clips mpv's descendants and passes panel input through.
+      // The window geometry stays full size, preserving video scale and center.
+      XShapeCombineMask(display,child,ShapeBounding,0,0,None,ShapeSet);
+      for(const auto& rect:current.overlays) {
+        XRectangle overlay{(short)rect.x,(short)rect.y,(unsigned short)rect.w,(unsigned short)rect.h};
+        XShapeCombineRectangles(display,child,ShapeBounding,0,0,&overlay,1,ShapeSubtract,Unsorted);
+      }
+      // Chromium can restack its rendering child when fullscreen changes. Keep
+      // the video above that child, as SetWindowPos(HWND_TOP) does on Windows.
+      if(current.visible) XMapRaised(display,child); else XUnmapWindow(display,child);
       XFlush(display);
 #endif
     }

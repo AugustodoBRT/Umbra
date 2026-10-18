@@ -18,7 +18,7 @@ jobs:
           node-version: '24'
           cache: npm
       - name: Install media tools
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg mpv libx11-dev cmake python3-libtorrent python-is-python3 xvfb
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg mpv libx11-dev libxext-dev cmake python3-libtorrent python-is-python3 xvfb
       - run: npm ci
       - name: Prepare Electron runtime
         run: node -p "require('electron')"
