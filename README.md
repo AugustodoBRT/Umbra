@@ -4,12 +4,12 @@
   <a href="https://github.com/AugustodoBRT/Umbra/actions/workflows/build.yml"><img src="https://github.com/AugustodoBRT/Umbra/actions/workflows/build.yml/badge.svg" alt="Build e testes"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/licença-MIT-d7f86a?labelColor=171a14" alt="MIT"></a>
   <img src="https://img.shields.io/badge/interface-pt--BR-d7f86a?labelColor=171a14" alt="Português brasileiro">
-  <img src="https://img.shields.io/badge/plataformas-Linux%20%7C%20Windows-d7f86a?labelColor=171a14" alt="Linux e Windows">
+  <img src="https://img.shields.io/badge/plataformas-Android%20%7C%20Linux%20%7C%20Windows-d7f86a?labelColor=171a14" alt="Android, Linux e Windows">
 </p>
 
 **Sua coleção, suas avaliações, seu próximo play.** Umbra reúne filmes e séries em uma biblioteca pessoal, com uma identidade escura inspirada em salas de cinema. O vídeo toca dentro do aplicativo; você escolhe o áudio, a legenda e o volume sem abrir outro player.
 
-<p align="center"><a href="https://github.com/AugustodoBRT/Umbra/releases">Baixar para Windows</a> · <a href="docs/USAGE.md">Guia de uso</a> · <a href="ARCHITECTURE.md">Como funciona</a></p>
+<p align="center"><a href="https://github.com/AugustodoBRT/Umbra/releases/download/android-latest/Umbra-android.apk">Baixar para Android (APK)</a> · <a href="https://github.com/AugustodoBRT/Umbra/releases">Baixar para Windows</a> · <a href="docs/USAGE.md">Guia de uso</a> · <a href="ARCHITECTURE.md">Como funciona</a></p>
 
 ![Explorar no Umbra com filmes e pôsteres reais do catálogo Cinemeta](assets/screenshots/explore.png)
 
@@ -24,6 +24,12 @@
 - **Explorar e baixar:** filmes, séries, livros e audiobooks, fontes por filme ou temporada, downloads de EPUB/PDF e outros formatos na mesma fila com pausa e retomada.
 - **Audiobooks:** player de áudio com velocidade ajustável, seleção de fontes e capítulos anunciados por OPDS/Readium, downloads de MP3/M4B e outros formatos em pasta própria.
 - **Dados portáteis:** catálogo e imagens acompanham sua pasta de vídeos; as chaves e os links privados ficam no computador.
+
+## Instalar no Android
+
+**Android 9 ou superior.** [Baixe o APK do Umbra](https://github.com/AugustodoBRT/Umbra/releases/download/android-latest/Umbra-android.apk), abra o arquivo no celular e confirme a instalação. Se solicitado, autorize a instalação de aplicativos pela fonte usada para baixar o APK.
+
+As próximas versões publicadas aparecem no aplicativo com o botão **Baixar e atualizar**. O Android pede confirmação para instalar a atualização, preservando seus dados. Veja os detalhes e as notas da versão na [página do Android](https://github.com/AugustodoBRT/Umbra/releases/tag/android-latest).
 
 ## Instalar no Windows
 
