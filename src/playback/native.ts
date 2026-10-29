@@ -183,7 +183,7 @@ export class NativePlayer {
       this.timer=setInterval(() => this.sample(),500);this.publish();
     } catch(error) {await this.stop();throw error;}finally{this.starting=false;}
   }
-  async playStream(url: string,title: string,options?: { streamId?: string; onStop?: () => void }): Promise<void> {
+  async playStream(url: string,title: string,options?: { streamId?: string; onStop?: () => void; mediaType?: 'audio' }): Promise<void> {
     if(this.starting) throw new Error('O player está sendo iniciado.');
     this.starting=true;
     try {
@@ -191,9 +191,9 @@ export class NativePlayer {
       this.onStop=options?.onStop;
       this.codec='';
       this.store=undefined;this.session=undefined;this.watched=0;
-      this.state={ ...emptyPlayer(),engine:'mpv',active:true,fileId:options?.streamId ?? null,title,position:0,duration:0,paused:true,loading:true,subtitleDelay:0 };
+      this.state={ ...emptyPlayer(),mediaType:options?.mediaType,engine:'mpv',active:true,fileId:options?.streamId ?? null,title,position:0,duration:0,paused:true,loading:true,subtitleDelay:0 };
       this.publish();const generation=++this.generation;
-      await this.startProcess(generation,url,['--cache=yes','--demuxer-max-bytes=128MiB','--demuxer-readahead-secs=20',`--force-media-title=${title}`]);
+      await this.startProcess(generation,url,[...(options?.mediaType === 'audio' ? ['--vid=no','--audio-display=no'] : []),'--cache=yes','--demuxer-max-bytes=128MiB','--demuxer-readahead-secs=20',`--force-media-title=${title}`]);
       const tracks=await this.ipc!.command('get_property','track-list').catch(() => []);
       if(Array.isArray(tracks)) this.event({event:'property-change',name:'track-list',data:tracks},generation);
       await this.ipc!.command('set_property','aid','auto').catch(() => {});
@@ -220,7 +220,7 @@ export class NativePlayer {
     if(!this.state.active||!this.ipc) throw new Error('Abra um vídeo antes de usar os controles.');
     if(action==='fullscreen'){this.setFullscreen(!this.state.fullscreen);return;}
     if(action==='seek'){await this.ipc.command('seek',value,'absolute+exact');this.state.position=Number(value);this.position=Number(value);this.tick=performance.now();}
-    else if(action==='pause'){this.state.paused=!this.state.paused;await this.ipc.command('set_property','pause',this.state.paused);}
+    else if(action==='pause'){const paused=!(await this.ipc.command('get_property','pause'));await this.ipc.command('set_property','pause',paused);this.state.paused=paused;}
     else if(action==='volume'||action==='speed'){await this.ipc.command('set_property',action,value);this.state[action]=Number(value);}
     else if(action==='mute'){
       const current=await this.ipc.command('get_property','mute').catch(() => false);

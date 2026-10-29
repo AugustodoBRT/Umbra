@@ -17,14 +17,16 @@ export const safeName = (value: string) => {
 };
 export function destination(item: BoundSource['item'],video: BoundSource['video']) {
   const name = safeName(item.name); const year = item.year.match(/^\d{4}/)?.[0]; const folder = `${name}${year ? ` (${year})` : ''}`;
+  if (item.type === 'audiobook') return { relative: path.join('Audiobooks',folder),prefix: folder };
+  if (item.type === 'book') return { relative: path.join('Livros',folder),prefix: folder };
   if (item.type === 'movie') return { relative: path.join('Filmes',folder),prefix: folder };
   if (!video) throw new Error('Escolha um episódio antes de baixar.');
   const season = String(video.season).padStart(2,'0'),episode = String(video.episode).padStart(2,'0');
   return { relative: path.join('Series',folder,`Temporada ${season}`),prefix: `${name.slice(0,110)}${year ? ` (${year})` : ''} - S${season}E${episode}` };
 }
-interface StoredJob extends DownloadJob { raw: RawSource; libraryId: string; filePrefix: string; resume?: string; partial?: string }
+interface StoredJob extends DownloadJob { book?: boolean; audiobook?: boolean; raw: RawSource; libraryId: string; filePrefix: string; resume?: string; partial?: string }
 interface ActiveDownload { id: string; child?: ChildProcess; controller?: AbortController; done: Promise<void> }
-const storedSchema = z.object({ version: z.literal(1),jobs: z.array(z.object({ id: z.string().uuid(),title: z.string(),itemName: z.string(),sourceName: z.string(),season: z.number().optional(),episode: z.number().optional(),state: z.enum(['queued','metadata','downloading','paused','completed','error','cancelled']),downloaded: z.number(),total: z.number(),speed: z.number(),peers: z.number(),root: z.string(),directory: z.string(),fileName: z.string(),error: z.string().optional(),createdAt: z.string(),raw: z.object({ url: z.string().optional(),infoHash: z.string().optional(),fileIdx: z.number().optional(),sources: z.array(z.string()).optional(),behaviorHints: z.object({ filename: z.string().optional(),proxyHeaders: z.object({ request: z.record(z.string(),z.string()).optional() }).optional() }).optional() }),libraryId: z.string().uuid(),filePrefix: z.string(),resume: z.string().optional(),partial: z.string().optional() })).max(10000) });
+const storedSchema = z.object({ version: z.literal(1),jobs: z.array(z.object({ id: z.string().uuid(),title: z.string(),itemName: z.string(),sourceName: z.string(),season: z.number().optional(),episode: z.number().optional(),state: z.enum(['queued','metadata','downloading','paused','completed','error','cancelled']),downloaded: z.number(),total: z.number(),speed: z.number(),peers: z.number(),root: z.string(),directory: z.string(),fileName: z.string(),error: z.string().optional(),createdAt: z.string(),book: z.boolean().optional(),audiobook: z.boolean().optional(),raw: z.object({ url: z.string().optional(),infoHash: z.string().optional(),fileIdx: z.number().optional(),sources: z.array(z.string()).optional(),behaviorHints: z.object({ filename: z.string().optional(),proxyHeaders: z.object({ request: z.record(z.string(),z.string()).optional() }).optional() }).optional() }),libraryId: z.string().uuid(),filePrefix: z.string(),resume: z.string().optional(),partial: z.string().optional() })).max(10000) });
 
 export class Downloads {
   private jobs: StoredJob[] = [];
@@ -51,7 +53,7 @@ export class Downloads {
     for (const job of this.jobs) { job.speed = 0; job.peers = 0; if (['metadata','downloading','queued'].includes(job.state)) { job.state = 'paused'; job.error = 'Download interrompido ao fechar. Clique em Retomar.'; } }
     this.timer = setInterval(() => { void this.checkDisk(); },2000);
   }
-  list(): DownloadJob[] { return this.jobs.map(({ raw,libraryId,filePrefix,resume,partial,...publicJob }) => ({ ...publicJob })).reverse(); }
+  list(): DownloadJob[] { return this.jobs.map(({ raw,libraryId,filePrefix,resume,partial,book,audiobook,...publicJob }) => ({ ...publicJob })).reverse(); }
   assertNoPendingWork(root: string,title: string,originalTitle: string | undefined,paths: string[],series: boolean) {
     const names = [title,originalTitle].filter(Boolean).map(name => name!.normalize('NFD').replace(/\p{Diacritic}/gu,'').toLowerCase());
     const directories = series ? [...new Set(paths.filter(file => /^(series|séries)\//i.test(file)).map(file => file.split('/').slice(0,2).join('/')))] : [];
@@ -82,10 +84,11 @@ export class Downloads {
     if (!this.initialized) throw new Error('A fila salva não pôde ser recuperada. Os arquivos foram preservados.');
     await this.assertRoot({ root,libraryId });
     const planned = sources.map(source => {
+      if (source.summary.external) throw new Error('Abra este link no navegador da fonte.');
       if (source.raw.infoHash && !this.available) throw new Error('O motor de torrents não está disponível. Confira a tela de Downloads.');
       const target = destination(source.item,source.video); const directory = path.join(root,target.relative); relativePath(root,directory);
-      const filePrefix = safeName(target.prefix);
-      return { id: randomUUID(),title: source.video ? `${source.item.name} · T${source.video.season} E${source.video.episode}` : source.item.name,itemName: source.item.name,sourceName: `${source.summary.addonName} · ${source.summary.name}`,season: source.video?.season,episode: source.video?.episode,state: 'queued' as const,downloaded: 0,total: 0,speed: 0,peers: 0,root,directory,fileName: '',error: undefined,createdAt: new Date().toISOString(),raw: source.raw,libraryId,filePrefix };
+      const filePrefix = safeName(source.item.type === 'audiobook' && source.summary.part ? `${target.prefix} - Parte ${String(source.summary.part).padStart(3,'0')}` : target.prefix);
+      return { audiobook: source.item.type === 'audiobook',book: source.item.type === 'book',id: randomUUID(),title: source.video ? `${source.item.name} · T${source.video.season} E${source.video.episode}` : source.item.name,itemName: source.item.name,sourceName: `${source.summary.addonName} · ${source.summary.name}`,season: source.video?.season,episode: source.video?.episode,state: 'queued' as const,downloaded: 0,total: 0,speed: 0,peers: 0,root,directory,fileName: '',error: undefined,createdAt: new Date().toISOString(),raw: source.raw,libraryId,filePrefix };
     });
     for (const job of planned) {
       if ([...this.jobs,...planned.filter(j => j.id !== job.id)].some(j => j.root === root && j.directory === job.directory && j.filePrefix === job.filePrefix && !['error','cancelled'].includes(j.state))) throw new Error(`Este título já está na fila ou foi baixado: ${job.title}.`);
@@ -150,7 +153,7 @@ export class Downloads {
         else if (['paused','cancelled'].includes(job.state)) resolve();
         else reject(new Error(failure ?? (code === 0 ? 'Download interrompido. Retome para continuar.' : 'O motor de torrents encerrou antes de concluir.')));
       });
-      child.stdin!.write(`${JSON.stringify({ id: job.id,directory: job.directory,filePrefix: job.filePrefix,magnet: magnet.href,fileIdx: job.raw.fileIdx,resume: job.resume,season: job.season,episode: job.episode })}\n`);
+      child.stdin!.write(`${JSON.stringify({ id: job.id,directory: job.directory,filePrefix: job.filePrefix,magnet: magnet.href,fileIdx: job.raw.fileIdx,book: job.book,audiobook: job.audiobook,resume: job.resume,season: job.season,episode: job.episode })}\n`);
     });
   }
   private async publishFile(source: string,target: string) {
@@ -164,10 +167,11 @@ export class Downloads {
   private async http(job: StoredJob,running: NonNullable<Downloads['active']>) {
     const url = transportURL(job.raw.url ?? '');
     const hinted = job.raw.behaviorHints?.filename ?? decodeURIComponent(url.pathname);
-    const extension = hinted.match(/\.(mkv|mp4|avi|webm|m4v|mov|ts|m2ts)$/i)?.[0]?.toLowerCase() ?? '.mp4';
+    const extension = job.audiobook ? hinted.match(/\.(mp3|m4b|m4a|aac|ogg|oga|opus|flac|wav)$/i)?.[0]?.toLowerCase() : job.book ? hinted.match(/\.(epub|pdf|mobi|azw3|fb2|cbz|cbr|txt)$/i)?.[0]?.toLowerCase() : hinted.match(/\.(mkv|mp4|avi|webm|m4v|mov|ts|m2ts)$/i)?.[0]?.toLowerCase() ?? '.mp4';
+    if (!extension) throw new Error('O formato deste livro ou audiobook não foi informado pela fonte. Abra o catálogo no navegador.');
     job.fileName = `${job.filePrefix}${extension}`;
     const target = path.join(job.directory,job.fileName); const partial = path.join(job.directory,`.cinessd-${job.id}.partial`);
-    try { await access(target); throw new Error('O vídeo de destino já existe. Ele foi preservado.'); } catch (error: any) { if (error.code !== 'ENOENT') throw error; }
+    try { await access(target); throw new Error('O arquivo de destino já existe. Ele foi preservado.'); } catch (error: any) { if (error.code !== 'ENOENT') throw error; }
     running.controller = new AbortController();
     let offset = 0; try { offset = (await stat(partial)).size; } catch { /* New download. */ }
     const headers = new Headers(job.raw.behaviorHints?.proxyHeaders?.request ?? {}); headers.set('Accept-Encoding','identity'); if (offset) headers.set('Range',`bytes=${offset}-`);
@@ -177,7 +181,7 @@ export class Downloads {
     if (!response.ok || !response.body) throw new Error('Esta fonte não permitiu baixar o arquivo. Tente outra opção.');
     const contentType = (response.headers.get('content-type') ?? '').toLowerCase();
     if (/mpegurl|dash\+xml/.test(contentType)) { await response.body.cancel(); throw new Error('Esta fonte usa transmissão adaptativa. Escolha um torrent ou um arquivo de vídeo direto.'); }
-    if (contentType.includes('text/') || contentType.includes('application/json')) { await response.body.cancel(); throw new Error('A fonte retornou uma página de erro em vez do vídeo.'); }
+    if ((contentType.includes('text/') && !(job.book && extension === '.txt' && contentType.startsWith('text/plain'))) || contentType.includes('application/json')) { await response.body.cancel(); throw new Error('A fonte retornou uma página de erro em vez do arquivo.'); }
     if (response.status === 206) {
       const range = response.headers.get('content-range')?.match(/^bytes (\d+)-(\d+)\/(\d+)$/);
       if (!range || Number(range[1]) !== offset) { await response.body.cancel(); throw new Error('A fonte retornou um intervalo inválido para retomar o arquivo.'); }

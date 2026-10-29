@@ -136,3 +136,21 @@ test('playStream plays HTTP streaming directly without Store, manages events, an
   }
 });
 
+
+
+test('audiobook no mpv reproduz só áudio, pausa, busca e altera a velocidade',async () => {
+  const directory = await mkdtemp(path.join(tmpdir(),'umbra-audio-player-'));
+  const file = path.join(directory,'audiobook.m4b');
+  execFileSync(mediaTool('ffmpeg'),['-nostdin','-v','error','-f','lavfi','-i','sine=frequency=440:duration=30','-c:a','aac','-f','mp4',file]);
+  const player = new NativePlayer(() => {},{ mpv: mpvTool(),host: '',parent: () => '0',appearance: () => defaultSubtitleAppearance,input: () => {},headless: true });
+  try {
+    await player.playStream(file,'Audiobook Sintético',{ mediaType: 'audio',streamId: 'audio-test' });
+    await until(() => player.state.tracks.some(track => track.type === 'audio') && player.state.duration > 25);
+    assert.equal(player.state.mediaType,'audio'); assert.equal(player.state.video,undefined);
+    await player.control('pause'); assert.equal(player.state.paused,true);
+    await player.control('seek',10); assert.ok(Math.abs(player.state.position-10)<.5);
+    await player.control('speed',1.5); assert.equal(player.state.speed,1.5);
+    await player.control('pause'); await until(() => player.state.position > 10.1);
+    await player.stop(); assert.equal(player.state.active,false);
+  } finally { await player.stop(); await rm(directory,{ recursive: true,force: true }); }
+});

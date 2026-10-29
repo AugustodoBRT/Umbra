@@ -43,7 +43,7 @@ export class Providers {
     return this.request(`https://api.themoviedb.org/3/${endpoint}?${query}`,isKey ? undefined : this.tmdb);
   }
   async localizeOnline(item: Pick<OnlineItem,'id'|'type'>): Promise<OnlineLocalization | null> {
-    if (!this.tmdb || !/^tt\d+$/.test(item.id)) return null;
+    if (['book','audiobook'].includes(item.type) || !this.tmdb || !/^tt\d+$/.test(item.id)) return null;
     const data = await this.tmdbRequest(`find/${item.id}`,{ external_source: 'imdb_id' });
     const results = item.type === 'movie' ? data.movie_results : data.tv_results;
     if (!Array.isArray(results) || results.length !== 1 || !Number.isInteger(results[0].id)) return null;

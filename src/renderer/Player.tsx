@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
-import { Play, Pause, Volume2, Maximize, Minimize2, X, ChevronDown, LoaderCircle, Captions } from 'lucide-react';
+import { Play, Pause, Volume2, Maximize, Minimize2, X, ChevronDown, LoaderCircle, Captions, Headphones } from 'lucide-react';
 import type { PlayerBounds, PlayerState } from '../shared/types';
 import type { SubtitleAppearance } from '../shared/subtitles';
 import { SubtitlesPanel, subtitleLanguage } from './SubtitlesPanel';
@@ -14,6 +14,7 @@ export function Player({ state,run,subtitleAppearance }: { state: PlayerState; r
   const subtitleButton = useRef<HTMLButtonElement>(null);
   const nativeSurface = useRef<HTMLDivElement>(null);
   const native = state.engine === 'mpv';
+  const audioOnly = state.mediaType === 'audio';
   const hideTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const pendingAppearance = useRef<SubtitleAppearance | undefined>(undefined);
@@ -43,10 +44,10 @@ export function Player({ state,run,subtitleAppearance }: { state: PlayerState; r
   };
   const revealControls = () => {
     clearTimeout(hideTimer.current); setControlsVisible(true);
-    if (!fullscreen || loading || error || subtitlesOpen) return;
+    if (audioOnly || !fullscreen || loading || error || subtitlesOpen) return;
     hideTimer.current = setTimeout(() => setControlsVisible(false),2500);
   };
-  const hideControls = () => { clearTimeout(hideTimer.current); if (fullscreen && !subtitlesOpen && !loading && !error) setControlsVisible(false); };
+  const hideControls = () => { clearTimeout(hideTimer.current); if (!audioOnly && fullscreen && !subtitlesOpen && !loading && !error) setControlsVisible(false); };
   const toggleFullscreen = () => { setMinimized(false); control('fullscreen'); };
   const minimize = () => { closeSubtitles(); if (fullscreen) control('fullscreen'); setMinimized(!minimized); };
   useEffect(() => {
@@ -120,7 +121,7 @@ export function Player({ state,run,subtitleAppearance }: { state: PlayerState; r
       const rect=surface.getBoundingClientRect(),hit=document.elementFromPoint(rect.x+rect.width/2,rect.y+rect.height/2);
       const x=Math.max(0,rect.x),y=Math.max(0,rect.y);
       const overlays=[...player.current!.querySelectorAll(fullscreen && controlsVisible ? '.embedded-player-heading,.embedded-player-controls,.subtitle-settings' : '.subtitle-settings')];
-      const bounds: PlayerBounds={x,y,width:Math.max(1,Math.min(rect.width,innerWidth-x)),height:Math.max(1,Math.min(rect.height,innerHeight-y)),scale:devicePixelRatio,visible:!state.error&&document.visibilityState==='visible'&&!!hit&&(hit===surface||surface.contains(hit)||overlays.some(overlay=>overlay.contains(hit))),overlays:[]};
+      const bounds: PlayerBounds={x,y,width:Math.max(1,Math.min(rect.width,innerWidth-x)),height:Math.max(1,Math.min(rect.height,innerHeight-y)),scale:devicePixelRatio,visible:!audioOnly&&!state.error&&document.visibilityState==='visible'&&!!hit&&(hit===surface||surface.contains(hit)||overlays.some(overlay=>overlay.contains(hit))),overlays:[]};
       for(const element of overlays){
         const overlay=element.getBoundingClientRect();
         const left=Math.max(x,overlay.left),top=Math.max(y,overlay.top),right=Math.min(x+bounds.width,overlay.right),bottom=Math.min(y+bounds.height,overlay.bottom);
@@ -134,7 +135,7 @@ export function Player({ state,run,subtitleAppearance }: { state: PlayerState; r
     // Also hide the native child when a library modal covers a minimized player.
     const timer=setInterval(sync,250);schedule();
     return () => {clearInterval(timer);cancelAnimationFrame(frame);observer.disconnect();window.removeEventListener('resize',schedule);document.removeEventListener('visibilitychange',schedule);};
-  },[native,minimized,fullscreen,controlsVisible,subtitlesOpen,state.loading,state.error]);
+  },[native,audioOnly,minimized,fullscreen,controlsVisible,subtitlesOpen,state.loading,state.error]);
   useEffect(()=>()=>{if(native)void window.cine.playerBounds({x:0,y:0,width:1,height:1,scale:devicePixelRatio,visible:false}).catch(()=>{});},[native]);
   useEffect(() => {
     if(!native) return;
@@ -180,19 +181,19 @@ export function Player({ state,run,subtitleAppearance }: { state: PlayerState; r
     document.addEventListener('keydown',key); return () => document.removeEventListener('keydown',key);
   },[state.position,state.paused,state.fullscreen,minimized,controlsVisible,loading,error,subtitlesOpen]);
   const commitSeek = () => { if (seek !== undefined) control('seek',seek); setSeek(undefined); };
-  const className = `embedded-player ${native ? 'native-player' : ''} ${minimized ? 'minimized' : ''} ${fullscreen ? 'fullscreen' : ''} ${fullscreen && !controlsVisible ? 'controls-hidden' : ''} ${subtitlesOpen ? 'subtitles-open' : ''}`;
+  const className = `embedded-player ${audioOnly ? 'audio-player' : ''} ${native ? 'native-player' : ''} ${minimized ? 'minimized' : ''} ${fullscreen ? 'fullscreen' : ''} ${fullscreen && !controlsVisible ? 'controls-hidden' : ''} ${subtitlesOpen ? 'subtitles-open' : ''}`;
   const pointerEvents = {
     onPointerEnter: revealControls,onPointerMove: revealControls,onPointerLeave: hideControls,onFocusCapture: revealControls,
     onPointerDown: (event: PointerEvent<HTMLElement>) => { revealControls(); if (subtitlesOpen && !(event.target as Element).closest('.subtitle-settings,.subtitle-trigger')) closeSubtitles(); }
   };
-  const heading = <header className="embedded-player-heading" aria-hidden={fullscreen && !controlsVisible} inert={fullscreen && !controlsVisible}><Brand symbolOnly/><span><small>AGORA EM SESSÃO</small><strong>{state.title}</strong></span><button className="icon-button" aria-label={minimized ? 'Expandir player' : 'Minimizar player'} onClick={minimize}>{minimized ? <Maximize size={18}/> : <ChevronDown size={20}/>}</button><button className="icon-button" aria-label="Encerrar reprodução" onClick={() => control('stop')}><X size={20}/></button></header>;
+  const heading = <header className="embedded-player-heading" aria-hidden={fullscreen && !controlsVisible} inert={fullscreen && !controlsVisible}><Brand symbolOnly/><span><small>{audioOnly ? 'OUVINDO AUDIOBOOK' : 'AGORA EM SESSÃO'}</small><strong>{state.title}</strong></span><button className="icon-button" aria-label={minimized ? 'Expandir player' : 'Minimizar player'} onClick={minimize}>{minimized ? <Maximize size={18}/> : <ChevronDown size={20}/>}</button><button className="icon-button" aria-label="Encerrar reprodução" onClick={() => control('stop')}><X size={20}/></button></header>;
   const footer = <footer ref={controls} className="embedded-player-controls" aria-hidden={fullscreen && !controlsVisible} inert={fullscreen && !controlsVisible}>
       {subtitlesOpen && <SubtitlesPanel state={state} appearance={appearance} onAppearance={changeAppearance} onSelect={id => control('subtitle',id)} onDelay={value => control('subtitleDelay',value)} onClose={() => closeSubtitles(true)}/>}
-      <div className="video-timeline"><span>{time(seek ?? state.position)}</span><input type="range" aria-label="Posição de reprodução" min="0" max={state.duration || 1} step=".1" value={seek ?? state.position} onChange={event => setSeek(Number(event.target.value))} onPointerUp={commitSeek} onKeyUp={commitSeek}/><span>{time(state.duration)}</span></div><div className="video-control-row"><button className="button secondary play-pause" aria-label={state.paused ? 'Reproduzir' : 'Pausar'} onClick={() => control('pause')}>{state.paused ? <Play size={19}/> : <Pause size={19}/>}</button><label className="video-volume"><Volume2 size={18}/><input type="range" aria-label="Volume" min="0" max="100" value={state.volume} onChange={event => control('volume',Number(event.target.value))}/></label><label>Velocidade<select aria-label="Velocidade" value={state.speed} onChange={event => control('speed',Number(event.target.value))}>{[.5,.75,1,1.25,1.5,2].map(speed => <option key={speed} value={speed}>{speed}×</option>)}</select></label><label>Áudio<select aria-label="Faixa de áudio" value={state.audio} disabled={!state.tracks.some(track => track.type === 'audio')} onChange={event => control('audio',event.target.value === 'auto' ? 'auto' : Number(event.target.value))}><option value="auto">Automático</option>{state.tracks.filter(track => track.type === 'audio').map(track => <option key={track.id} value={track.id}>{track.language || `Áudio ${track.id}`} {track.title}</option>)}</select></label><button ref={subtitleButton} className={`subtitle-trigger ${selectedSubtitle ? 'active' : ''}`} aria-label="Legendas" aria-haspopup="dialog" aria-expanded={subtitlesOpen} title={`Legendas: ${subtitleLabel}`} onClick={() => { setMinimized(false); if (subtitlesOpen) closeSubtitles(); else setSubtitlesOpen(true); }}><Captions size={20}/><span>{subtitleLabel}</span>{selectedSubtitle && <i className="subtitle-active-dot"/>}</button><button className="icon-button" aria-label="Tela cheia do player" onClick={toggleFullscreen}>{state.fullscreen ? <Minimize2 size={20}/> : <Maximize size={20}/>}</button></div></footer>;
+      <div className="video-timeline"><span>{time(seek ?? state.position)}</span><input type="range" aria-label="Posição de reprodução" min="0" max={state.duration || 1} step=".1" value={seek ?? state.position} onChange={event => setSeek(Number(event.target.value))} onPointerUp={commitSeek} onKeyUp={commitSeek}/><span>{time(state.duration)}</span></div><div className="video-control-row"><button className="button secondary play-pause" aria-label={state.paused ? 'Reproduzir' : 'Pausar'} onClick={() => control('pause')}>{state.paused ? <Play size={19}/> : <Pause size={19}/>}</button><label className="video-volume"><Volume2 size={18}/><input type="range" aria-label="Volume" min="0" max="100" value={state.volume} onChange={event => control('volume',Number(event.target.value))}/></label><label>Velocidade<select aria-label="Velocidade" value={state.speed} onChange={event => control('speed',Number(event.target.value))}>{[.5,.75,1,1.25,1.5,2].map(speed => <option key={speed} value={speed}>{speed}×</option>)}</select></label><label>Áudio<select aria-label="Faixa de áudio" value={state.audio} disabled={!state.tracks.some(track => track.type === 'audio')} onChange={event => control('audio',event.target.value === 'auto' ? 'auto' : Number(event.target.value))}><option value="auto">Automático</option>{state.tracks.filter(track => track.type === 'audio').map(track => <option key={track.id} value={track.id}>{track.language || `Áudio ${track.id}`} {track.title}</option>)}</select></label>{!audioOnly && <button ref={subtitleButton} className={`subtitle-trigger ${selectedSubtitle ? 'active' : ''}`} aria-label="Legendas" aria-haspopup="dialog" aria-expanded={subtitlesOpen} title={`Legendas: ${subtitleLabel}`} onClick={() => { setMinimized(false); if (subtitlesOpen) closeSubtitles(); else setSubtitlesOpen(true); }}><Captions size={20}/><span>{subtitleLabel}</span>{selectedSubtitle && <i className="subtitle-active-dot"/>}</button>}<button className="icon-button" aria-label="Tela cheia do player" onClick={toggleFullscreen}>{state.fullscreen ? <Minimize2 size={20}/> : <Maximize size={20}/>}</button></div></footer>;
   return <section ref={player} className={className} aria-label="Reprodução no Umbra" {...pointerEvents}>
       <style data-subtitle-appearance>{`.embedded-video-stage video::cue { font-size: ${appearance.fontSize}px; color: ${appearance.color}; background-color: ${appearance.background === 'black' ? '#000' : appearance.background === 'translucent' ? '#000a' : 'transparent'}; text-shadow: ${appearance.outline ? '-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000,0 2px 4px #000' : 'none'}; }`}</style>
       {heading}
-      <div className="embedded-video-stage">{native ? <div ref={nativeSurface} className="native-video-surface" aria-label="Vídeo em reprodução"/> : <video ref={video} autoPlay={!state.paused} playsInline crossOrigin="anonymous" aria-label="Vídeo em reprodução" onClick={() => control('pause')} onDoubleClick={toggleFullscreen} onPlaying={() => setLoading(false)} onWaiting={() => setLoading(true)} onCanPlay={() => setLoading(false)} onEnded={() => { if (state.source) void window.cine.playbackReport(state.source.token,state.duration,true); }}>
+      <div className="embedded-video-stage">{audioOnly && <div className="audiobook-art" aria-label="Audiobook em reprodução"><Headphones size={52}/><strong>{state.title}</strong><span>Seu tempo de ouvir.</span></div>}{native ? <div ref={nativeSurface} className="native-video-surface" aria-label="Vídeo em reprodução"/> : <video ref={video} autoPlay={!state.paused} playsInline crossOrigin="anonymous" aria-label="Vídeo em reprodução" onClick={() => control('pause')} onDoubleClick={toggleFullscreen} onPlaying={() => setLoading(false)} onWaiting={() => setLoading(true)} onCanPlay={() => setLoading(false)} onEnded={() => { if (state.source) void window.cine.playbackReport(state.source.token,state.duration,true); }}>
       {state.source?.subtitleUrl && <track key={state.source.subtitleUrl} kind="subtitles" label="Legenda selecionada" default/>}
     </video>}{loading && !error && <div className="video-loading" role="status"><LoaderCircle className="spin" size={30}/><span>Preparando sua sessão…</span></div>}{error && <div className="video-error" role="alert">{error}</div>}</div>
       {footer}

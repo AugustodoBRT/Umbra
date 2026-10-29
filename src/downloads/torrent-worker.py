@@ -224,19 +224,20 @@ def run_stream(job):
         if info.num_files() > 10000:
             raise ValueError('Torrent com arquivos demais.')
 
+        extensions = r'\.(mp3|m4b|m4a|aac|ogg|oga|opus|flac|wav)$' if job.get('audiobook') else r'\.(mkv|mp4|avi|webm|m4v|mov|ts|m2ts)$'
         eligible = [
             i for i in range(info.num_files())
-            if re.search(r'\.(mkv|mp4|avi|webm|m4v|mov|ts|m2ts)$', files.file_path(i), re.I)
+            if re.search(extensions, files.file_path(i), re.I)
             and not (files.file_flags(i) & lt.file_storage.flag_symlink)
         ]
 
         selected = None
-        if file_idx is not None and 0 <= int(file_idx) < info.num_files():
+        if file_idx is not None and int(file_idx) in eligible:
             selected = int(file_idx)
         elif eligible:
             selected = max(eligible, key=files.file_size)
         else:
-            selected = 0
+            raise ValueError('Esta fonte não contém um arquivo de mídia compatível.')
 
         priorities = [0] * info.num_files()
         priorities[selected] = 1
@@ -534,12 +535,13 @@ def run_download(job):
                 files = info.files()
                 if info.num_files() > 10000:
                     raise ValueError('Torrent com arquivos demais.')
-                eligible = [i for i in range(info.num_files()) if re.search(r'\.(mkv|mp4|avi|webm|m4v|mov|ts|m2ts)$', files.file_path(i), re.I)
+                extensions = r'\.(mp3|m4b|m4a|aac|ogg|oga|opus|flac|wav)$' if job.get('audiobook') else r'\.(epub|pdf|mobi|azw3|fb2|cbz|cbr|txt)$' if job.get('book') else r'\.(mkv|mp4|avi|webm|m4v|mov|ts|m2ts)$'
+                eligible = [i for i in range(info.num_files()) if re.search(extensions, files.file_path(i), re.I)
                             and not (files.file_flags(i) & lt.file_storage.flag_symlink)]
                 selected = job.get('fileIdx')
                 if selected is None:
                     if not eligible:
-                        raise ValueError('Esta fonte não contém um vídeo compatível.')
+                        raise ValueError('Esta fonte não contém um arquivo compatível.')
                     if job.get('episode') is not None and len(eligible) > 1:
                         season = int(job['season'])
                         episode = int(job['episode'])
@@ -551,11 +553,11 @@ def run_download(job):
                     else:
                         selected = max(eligible, key=files.file_size)
                 if selected not in eligible:
-                    raise ValueError('O arquivo indicado pela fonte não é um vídeo compatível.')
+                    raise ValueError('O arquivo indicado pela fonte não é compatível.')
                 extension = os.path.splitext(files.file_path(selected))[1].lower()
                 file_name = prefix + extension
                 if os.path.lexists(os.path.join(directory, file_name)):
-                    raise ValueError('O vídeo de destino já existe. Ele foi preservado.')
+                    raise ValueError('O arquivo de destino já existe. Ele foi preservado.')
                 if os.path.islink(os.path.join(directory, partial)):
                     raise ValueError('Arquivo temporário inválido.')
                 handle.prioritize_files([0] * info.num_files())

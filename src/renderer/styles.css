@@ -53,3 +53,7 @@
 .source-card-footer>.button,.source-card-actions{flex-shrink:0;margin:0}
 .source-card-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 @media(max-width:800px){.download-source.source-card{padding:18px}.source-tracks th{width:135px;padding-right:10px}.source-card-footer{flex-wrap:wrap}.source-card-footer>.button,.source-card-footer>.source-card-actions{margin-left:auto}.source-card-title h3{font-size:14px}}
+
+.catalog-provider{display:block;margin:9px 1px 0;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.book-source{margin-bottom:0}.book-source h3{margin:12px 0}.book-source p{margin-bottom:18px;overflow-wrap:anywhere}
+
+.publication-actions{display:flex;flex-wrap:wrap;gap:12px}.audio-player .embedded-video-stage{min-height:240px}.audiobook-art{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:30px;text-align:center;background:radial-gradient(ellipse at center,#29331b,#11150e 75%);color:var(--accent)}.audiobook-art strong{font-size:22px;max-width:620px;line-height:1.4;color:var(--text)}.audiobook-art span{font-size:12px;color:var(--muted)}.audio-player.minimized .audiobook-art{display:none}

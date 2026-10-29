@@ -16,9 +16,11 @@ Use **Desconectar com segurança** no app antes de ejetar o disco pelo sistema. 
 
 ## Catálogo online, complementos e downloads
 
-**Explorar** mostra filmes e séries do Cinemeta sem exigir SSD, arquivos locais ou chave TMDB. Há busca, seleção de catálogo, gênero e paginação. Cinemeta e Torrentio básico vêm habilitados na primeira configuração de complementos; você pode desativá-los ou removê-los.
+**Explorar** mostra filmes e séries do Cinemeta sem exigir SSD, arquivos locais ou chave TMDB. Há busca em todas as fontes ou em uma fonte escolhida. Ao selecionar uma fonte, também é possível escolher seu catálogo, gênero e carregar mais títulos quando o complemento oferece paginação. Cinemeta e Torrentio básico vêm habilitados na primeira configuração de complementos; você pode desativá-los ou removê-los.
 
-Em **Complementos**, cole um link HTTP(S) ou `stremio://` que termine em `/manifest.json`. O Umbra usa o protocolo de catálogo, metadados e fontes do Stremio, sem executar código remoto. Para personalizar Torrentio, use **Configurar Torrentio**, ajuste no navegador, copie o link de instalação com **Copy Link** e cole no app; a nova configuração substitui a anterior desse complemento. O app não precisa do Stremio instalado nem vincula sua conta do Stremio.
+Em **Complementos**, cole um link HTTP(S) ou `stremio://` de instalação. O Umbra identifica o manifesto Stremio; se você colar o endereço base ou a página `/configure`, ele também tenta o caminho `/manifest.json`. Links de catálogos de livros OPDS são identificados automaticamente. Um site comum não se torna uma fonte apenas por informar seu endereço. O Umbra usa o protocolo de catálogo, metadados e fontes do Stremio, sem executar código remoto. Para personalizar Torrentio, use **Configurar Torrentio**, ajuste no navegador, copie o link de instalação com **Copy Link** e cole no app; a nova configuração substitui a anterior desse complemento. O app não precisa do Stremio instalado nem vincula sua conta do Stremio.
+
+Em **Explorar → Pesquisar em**, selecione **Todas as fontes** ou um provedor. Buscas por texto consultam os catálogos habilitados que anunciam suporte à pesquisa; catálogos sem busca são informados e ignorados. Uma falha não descarta os resultados das outras fontes. Cada cartão indica de qual fonte veio. Nos detalhes de um filme ou série, **Consultar fontes** permite pesquisar opções em todos os complementos compatíveis ou apenas no escolhido; a compatibilidade considera o tipo de conteúdo e seus identificadores, conforme o [protocolo Stremio](https://stremio.github.io/stremio-addon-sdk/api/responses/manifest.html). Complementos que só oferecem streams, como Torrentio, aparecem nos detalhes, sem se tornarem catálogos de títulos.
 
 Os cartões de fonte separam qualidade, tamanho e pessoas compartilhando, com uma tabela de áudio, legendas e idiomas. Bandeiras são imagens locais, sem depender de emojis do sistema. Áudio e legendas só recebem idiomas quando o complemento os distingue explicitamente; bandeiras e idiomas no nome da versão aparecem como **Idiomas anunciados**. As legendas vinculadas pelo complemento são identificadas como oferecidas separadamente, sem afirmar que estão dentro do vídeo ou que serão baixadas com ele. As faixas efetivas são identificadas pelo ffprobe após o download. **Informações originais** permite consultar a descrição do complemento em texto legível.
 
@@ -40,6 +42,27 @@ Pastas e nomes são criados automaticamente; arquivos existentes são preservado
 No Linux, torrents usam **Python + libtorrent** do sistema. Os executáveis Windows incluem um motor independente; nenhum outro cliente torrent é necessário. O download escolhe o `fileIdx` indicado pelo complemento; sem índice, um pacote de série precisa ter um arquivo que identifique unicamente o episódio. Só o arquivo escolhido recebe prioridade. Torrents são interrompidos ao concluir, sem continuar semeando depois. Fontes HTTP(S) usam retomada por Range quando suportada. YouTube, páginas externas, transmissões HLS/DASH e arquivos compactados não são implementados. O suporte testado a info hashes é BitTorrent v1.
 
 Links configurados, URLs privadas de download e dados de retomada ficam criptografados no computador, com a mesma política das credenciais dos provedores. Eles não entram no SSD nem no renderer. A fila e a lista/avaliações de títulos online ficam neste computador; avaliações locais continuam no catálogo do SSD. **Minha lista online** reúne títulos guardados/avaliados mesmo sem SSD.
+
+## Livros e fontes OPDS
+
+1. Abra **Complementos** e cole o endereço do catálogo OPDS da sua fonte. São aceitos [OPDS 1 em Atom/XML](https://specs.opds.io/opds-1.2.html), inclusive busca via OpenSearch, e [OPDS 2 em JSON](https://specs.opds.io/opds-2.0). Complementos Stremio que anunciam o tipo `book` também aparecem na aba de livros.
+2. Em **Explorar → Livros**, pesquise em todas as fontes ou selecione uma. Fontes OPDS precisam anunciar um link de busca para responder a consultas por texto. Para catálogos apenas de navegação, selecione a fonte e uma das seções anunciadas no endereço instalado. Também é possível instalar diretamente o link de uma subseção.
+3. Abra um livro para ver autor, sinopse e opções de acesso. **Baixar livro** usa a mesma fila dos vídeos; **Abrir na fonte** abre links de empréstimo, compra ou outros acessos pelo navegador.
+4. Livros baixados vão para `Livros/Nome (ano)/Nome (ano).epub` (ou PDF, MOBI, AZW3, FB2, CBZ, CBR, TXT). Para fontes HTTP, o formato precisa estar informado pelo catálogo ou pelo nome do arquivo. Torrents de livros usam o índice anunciado ou o maior arquivo de livro compatível.
+
+Use seu leitor preferido para abrir os livros; esta versão não inclui leitor integrado nem importa livros na biblioteca local de vídeos. Avaliações e **Minha lista online** também funcionam para livros. Os links de aquisição ficam criptografados neste computador e são recuperados ao reiniciar. Não há autenticação OPDS por formulário, gerenciamento de DRM ou conversão de sites comuns. Os resultados de OPDS são limitados aos primeiros 250 livros de cada resposta; navegação profunda e paginação OPDS ainda não são implementadas. Edições de fontes diferentes só se conectam quando compartilham o mesmo identificador.
+
+## Audiobooks
+
+A aba **Explorar → Audiobooks** mantém a busca e a escolha de fontes independentes dos livros. Em **Complementos**, adicione um catálogo OPDS com áudio ou um complemento Stremio que anuncie o tipo `audiobook`. Fontes OPDS já instaladas recebem a nova categoria automaticamente; a listagem filtra o que cada catálogo realmente oferece.
+
+- **Ouvir agora** abre o áudio no player integrado, com pausa, busca, volume e velocidade. A interface exibe o título e um painel de áudio. Autor e narrador aparecem quando a fonte informa esses dados.
+- **Baixar audiobook** usa a fila habitual e salva em `Audiobooks/Nome (ano)/Nome (ano).m4b` (ou MP3, M4A, AAC, OGG/OGA, Opus, FLAC, WAV). Livros continuam na pasta `Livros`.
+- Catálogos OPDS com links para um manifesto Readium `application/audiobook+json` disponibilizam as partes de `readingOrder` para ouvir ou baixar separadamente. Os nomes dos arquivos incluem `Parte 001`, `Parte 002` etc. A seleção e o avanço entre partes são manuais; não há download automático da obra inteira nem retomada persistente do áudio online nesta versão.
+- Torrents de áudio usam o arquivo indicado pelo complemento. Sem índice, escolhem o maior arquivo de áudio compatível; um pacote com vários capítulos não é tratado como obra completa.
+- Links de empréstimo, compra e fontes com DRM abrem pelo navegador. O player integrado usa arquivos diretos e torrents sem DRM; não realiza login em serviços comerciais nem remove proteção.
+
+**Minha lista online**, avaliações, seleção de todas/uma fonte e recuperação após reiniciar também funcionam para audiobooks. Para catálogos mistos, áudio é identificado pelo formato do arquivo, pelo tipo MIME ou pela indicação `Audiobook` nos metadados; versões de texto continuam na aba Livros.
 
 ## O que já funciona
 

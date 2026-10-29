@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 export interface TorrentStreamSource {
   infoHash: string;
   fileIdx?: number;
+  audiobook?: boolean;
   sources?: string[];
 }
 
@@ -212,7 +213,8 @@ export class TorrentStreamer extends EventEmitter {
       const command = {
         action: 'stream',
         info_hash: source.infoHash,
-        file_idx: source.fileIdx ?? 0,
+        file_idx: source.fileIdx,
+        audiobook: source.audiobook,
         sources: source.sources ?? [],
       };
 

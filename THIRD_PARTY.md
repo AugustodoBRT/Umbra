@@ -21,3 +21,7 @@ O catálogo online consulta [Cinemeta](https://v3-cinemeta.strem.io/manifest.jso
 Downloads torrent usam [libtorrent](https://www.libtorrent.org/), com licença BSD, através dos bindings Python. No Linux, o motor vem do sistema; o Windows inclui libtorrent 2.1.1 e Python 3.12 em um worker independente, com licença e metadados da distribuição. [Python: licença](https://docs.python.org/3/license.html). O empacotamento usa [PyInstaller 6.16.0](https://github.com/pyinstaller/pyinstaller/tree/v6.16.0), cuja exceção do bootloader permite distribuir o worker. Avisos ficam em `resources/licenses/media`.
 
 As bandeiras dos idiomas são SVGs locais de [flag-icons](https://github.com/lipis/flag-icons), sob licença MIT. A licença original acompanha os arquivos em `src/renderer/flags/LICENSE`. Os SVGs são incorporados ao build e não consultam um serviço externo.
+
+## Catálogos de livros
+
+A leitura de catálogos OPDS 1 (Atom/XML) e OPDS 2 (JSON) segue as especificações em https://specs.opds.io/. O parser XML usa fast-xml-parser (MIT), de https://github.com/NaturalIntelligence/fast-xml-parser. Conteúdo e disponibilidade dos livros pertencem às respectivas fontes.

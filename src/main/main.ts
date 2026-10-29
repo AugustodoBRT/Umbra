@@ -177,21 +177,23 @@ function register(name: string, handler: (...args: any[]) => unknown, tracked = 
   });
 }
 function handlers() {
-  const onlineType = z.enum(['movie','series']); const onlineId = z.string().min(1).max(500);
+  const onlineType = z.enum(['movie','series','book','audiobook']); const onlineId = z.string().min(1).max(500);
   register('addons',() => addons.list());
   register('installAddon',async url => { await addons.install(z.string().trim().max(12000).parse(url)); emit({ type: 'changed' }); },true);
   register('addon',async (action,id) => { await addons.change(z.enum(['remove','enable','disable']).parse(action),idSchema.parse(id)); emit({ type: 'changed' }); },true);
   register('configureAddon',async id => { await shell.openExternal(id === 'torrentio' ? 'https://torrentio.strem.fun/configure' : addons.configurationURL(idSchema.parse(id))); });
   register('onlineCatalog',(addonId,catalogId,type,query,skip,genre) => addons.catalog(idSchema.parse(addonId),onlineId.parse(catalogId),onlineType.parse(type),z.string().max(300).parse(query),z.number().int().min(0).max(10000).parse(skip),z.string().max(100).parse(genre)),true);
+  register('onlineSearch',(type,query,onlyAddon) => addons.search(onlineType.parse(type),z.string().trim().max(300).parse(query),idSchema.optional().parse(onlyAddon)),true);
+  register('openBookSource',async id => { const source = addons.source(idSchema.parse(id)); if (!['book','audiobook'].includes(source.item.type) || !source.summary.external || !source.raw.url) throw new Error('Escolha um link de livro válido.'); await shell.openExternal(source.raw.url); });
   register('onlineMeta',async (addonId,type,id) => {
     const item = await addons.meta(idSchema.parse(addonId),onlineType.parse(type),onlineId.parse(id));
-    return { ...item,translationNote: item.metadataLanguage === 'pt-BR' ? undefined : providers.tmdb ? 'Sinopse em português indisponível no momento. Exibindo a descrição do catálogo.' : 'Configure o TMDB em Configurações → Configurar provedores para buscar sinopses em português.' };
+    return { ...item,translationNote: ['book','audiobook'].includes(item.type) ? undefined : item.metadataLanguage === 'pt-BR' ? undefined : providers.tmdb ? 'Sinopse em português indisponível no momento. Exibindo a descrição do catálogo.' : 'Configure o TMDB em Configurações → Configurar provedores para buscar sinopses em português.' };
   },true);
-  register('onlineSources',(addonId,type,id,videoId) => addons.sources(idSchema.parse(addonId),onlineType.parse(type),onlineId.parse(id),onlineId.parse(videoId)),true);
+  register('onlineSources',(addonId,type,id,videoId,onlyAddon) => addons.sources(idSchema.parse(addonId),onlineType.parse(type),onlineId.parse(id),onlineId.parse(videoId),idSchema.optional().parse(onlyAddon)),true);
   register('onlinePersonal',async (_addonId,type,id,personal) => { onlineStore.personal(onlineType.parse(type),onlineId.parse(id),personalSchema.parse(personal)); emit({ type: 'changed' }); });
   register('onlineSaved',() => addons.saved());
   register('planSeason',(addonId,id,season,sourceId) => addons.plan(idSchema.parse(addonId),onlineId.parse(id),z.number().int().min(0).max(1000).parse(season),idSchema.parse(sourceId)),true);
-  register('downloadSource',async id => { const source = addons.source(idSchema.parse(id)); const target = await downloadTarget(); if (!target) return false; await enqueueDownloads(() => downloads.enqueue([source],target.root,target.manifest.id)); return true; });
+  register('downloadSource',async id => { const source = addons.source(idSchema.parse(id)); if (source.summary.external) throw new Error('Abra este livro no navegador da fonte.'); const target = await downloadTarget(); if (!target) return false; await enqueueDownloads(() => downloads.enqueue([source],target.root,target.manifest.id)); return true; });
   register('downloadSeason',async (id,selections) => { const sources = addons.planSources(idSchema.parse(id),z.record(z.string().max(500),idSchema).parse(selections)); const target = await downloadTarget(); if (!target) return false; await enqueueDownloads(() => downloads.enqueue(sources,target.root,target.manifest.id)); return true; });
   register('downloads',() => ({ jobs: downloads.list(),root: computer.downloadRoot ?? store?.root ?? '',torrentAvailable: downloads.available }));
   register('chooseDownloadFolder',async () => (await downloadTarget(true))?.root ?? null);
@@ -231,16 +233,19 @@ function handlers() {
     const parsedId = idSchema.parse(sourceId);
     const parsedTitle = z.string().trim().max(500).optional().parse(title);
     const bound = addons.getStreamForSource(parsedId);
+    if (bound.item.type === 'book' || bound.summary.external) throw new Error('Use as opções de livro para baixar ou abrir na fonte.');
     const playTitle = parsedTitle || (bound.video ? `${bound.item.name} - S${String(bound.video.season).padStart(2,'0')}E${String(bound.video.episode).padStart(2,'0')}` : bound.item.name) || bound.summary.name;
     if (bound.raw.infoHash) {
       const currentStreamer = getStreamer();
       const result = await currentStreamer.startStream({
+        audiobook: bound.item.type === 'audiobook',
         infoHash: bound.raw.infoHash,
         fileIdx: bound.raw.fileIdx,
         sources: bound.raw.sources,
       });
       try {
         await player.playStream(result.url, playTitle, {
+          mediaType: bound.item.type === 'audiobook' ? 'audio' : undefined,
           streamId: parsedId,
           onStop: () => currentStreamer.stopStream(),
         });
@@ -249,7 +254,7 @@ function handlers() {
         throw error;
       }
     } else if (bound.raw.url) {
-      await player.playStream(bound.raw.url, playTitle, { streamId: parsedId });
+      await player.playStream(bound.raw.url, playTitle, { streamId: parsedId,mediaType: bound.item.type === 'audiobook' ? 'audio' : undefined });
     } else {
       throw new Error('Esta fonte não possui endereço de streaming nem torrent válido.');
     }

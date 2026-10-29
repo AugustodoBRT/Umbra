@@ -4,6 +4,7 @@ const invoke = (name: string, ...args: unknown[]) => ipcRenderer.invoke(`cine:${
 const api: API = {
   subtitleAppearance: value => invoke('subtitleAppearance',value),
   addons: () => invoke('addons'),installAddon: url => invoke('installAddon',url),addon: (action,id) => invoke('addon',action,id),configureAddon: id => invoke('configureAddon',id),
+  onlineSearch: (...args) => invoke('onlineSearch',...args),openBookSource: id => invoke('openBookSource',id),
   onlineCatalog: (...args) => invoke('onlineCatalog',...args),onlineMeta: (...args) => invoke('onlineMeta',...args),onlineSources: (...args) => invoke('onlineSources',...args),onlinePersonal: (...args) => invoke('onlinePersonal',...args),onlineSaved: () => invoke('onlineSaved'),
   planSeason: (...args) => invoke('planSeason',...args),downloadSource: id => invoke('downloadSource',id),downloadSeason: (...args) => invoke('downloadSeason',...args),downloads: () => invoke('downloads'),downloadControl: (...args) => invoke('downloadControl',...args),chooseDownloadFolder: () => invoke('chooseDownloadFolder'),
   snapshot: () => invoke('snapshot'), chooseLibrary: () => invoke('chooseLibrary'), disconnect: () => invoke('disconnect'), addSource: () => invoke('addSource'), scan: () => invoke('scan'), cancelScan: () => invoke('cancelScan'), detail: id => invoke('detail',id),

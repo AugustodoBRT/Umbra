@@ -20,7 +20,9 @@
 - **Metadados em português:** sinopses e gêneros via TMDB, mantendo títulos originais. Configure sua chave no app; a coleção funciona sem ela.
 - **Seu registro de cinema:** notas, resenhas, favoritos, listas e histórico de assistidos.
 - **Exclusão com histórico:** apagar um título libera o espaço dos vídeos. Obras assistidas permanecem no histórico; obras não assistidas saem do catálogo. O limite de conclusão é ajustável.
-- **Explorar e baixar:** catálogo online e complementos compatíveis com o protocolo Stremio, fontes por filme ou temporada, fila com pausa e retomada.
+- **Fontes por link:** identificação de complementos Stremio e catálogos OPDS de livros e audiobooks, busca em todas as fontes ou em uma escolhida e seleção de provedor nos detalhes.
+- **Explorar e baixar:** filmes, séries, livros e audiobooks, fontes por filme ou temporada, downloads de EPUB/PDF e outros formatos na mesma fila com pausa e retomada.
+- **Audiobooks:** player de áudio com velocidade ajustável, seleção de fontes e capítulos anunciados por OPDS/Readium, downloads de MP3/M4B e outros formatos em pasta própria.
 - **Dados portáteis:** catálogo e imagens acompanham sua pasta de vídeos; as chaves e os links privados ficam no computador.
 
 ## Instalar no Windows

@@ -13,7 +13,7 @@ export interface RemovalResult { keptHistory: boolean; cleanupPending: boolean }
 export interface PlaybackSession { id: string; fileId: string; startedAt: string; endedAt: string | null; watchedSeconds: number; endPosition: number }
 export interface ScanProgress { running: boolean; phase: 'discovering' | 'inspecting' | 'done'; total: number; processed: number; added: number; updated: number; missing: number; current: string; errors: string[]; cancelled: boolean }
 export interface PlayerBounds { x: number; y: number; width: number; height: number; scale: number; visible: boolean; overlays?: { x: number; y: number; width: number; height: number }[] }
-export interface PlayerState { active: boolean; fileId: string | null; title: string; position: number; duration: number; paused: boolean; volume: number; speed: number; tracks: MediaTrack[]; audio: number | string; subtitle: number | string; fullscreen: boolean; engine?: 'mpv'; loading?: boolean; subtitleDelay?: number; video?: { width: number; height: number; codec: string; pixelFormat: string; hardware: string }; error?: string; source?: { token: string; mode: 'file'|'stream'; url: string; start: number; subtitleUrl?: string }; mute?: boolean }
+export interface PlayerState { mediaType?: 'audio'; active: boolean; fileId: string | null; title: string; position: number; duration: number; paused: boolean; volume: number; speed: number; tracks: MediaTrack[]; audio: number | string; subtitle: number | string; fullscreen: boolean; engine?: 'mpv'; loading?: boolean; subtitleDelay?: number; video?: { width: number; height: number; codec: string; pixelFormat: string; hardware: string }; error?: string; source?: { token: string; mode: 'file'|'stream'; url: string; start: number; subtitleUrl?: string }; mute?: boolean }
 export interface Candidate { id: number; kind: 'movie' | 'series'; title: string; originalTitle: string; year: number | null; overview: string; poster: string | null; confidence: number }
 export interface CustomList { id: string; name: string; workIds: string[] }
 export interface Settings { tmdbConfigured: boolean; omdbConfigured: boolean; secureStorage: boolean; credentialStorage: 'system'|'local'; completedPercent: number; hideSpoilers: boolean; autoScan: boolean; reopenLastLibrary: boolean; subtitleAppearance: import('./subtitles').SubtitleAppearance; diagnostics: { ffprobe: boolean; ffmpeg: boolean; mpv: boolean; platform: string; electron: string } }
@@ -26,8 +26,10 @@ export interface API {
   addon(action: 'remove'|'enable'|'disable', id: string): Promise<void>;
   configureAddon(id: string): Promise<void>;
   onlineCatalog(addonId: string, catalogId: string, type: import('./online').OnlineType, query: string, skip: number, genre: string): Promise<import('./online').OnlineItem[]>;
+  onlineSearch(type: import('./online').OnlineType, query: string, onlyAddon?: string): Promise<import('./online').CatalogResult>;
+  openBookSource(sourceId: string): Promise<void>;
   onlineMeta(addonId: string, type: import('./online').OnlineType, id: string): Promise<import('./online').OnlineItem>;
-  onlineSources(addonId: string, type: import('./online').OnlineType, id: string, videoId: string): Promise<import('./online').SourceResult>;
+  onlineSources(addonId: string, type: import('./online').OnlineType, id: string, videoId: string, onlyAddon?: string): Promise<import('./online').SourceResult>;
   onlinePersonal(addonId: string, type: import('./online').OnlineType, id: string, personal: Personal): Promise<void>;
   onlineSaved(): Promise<import('./online').OnlineItem[]>;
   planSeason(addonId: string, id: string, season: number, sourceId: string): Promise<import('./online').SeasonPlan>;

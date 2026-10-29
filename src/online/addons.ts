@@ -1,13 +1,16 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import type { AddonSummary, OnlineItem, OnlineSource, OnlineType, OnlineVideo, SourceResult, SeasonPlan, OnlineLocalization } from '../shared/online';
+import type { AddonSummary, OnlineItem, OnlineSource, OnlineType, OnlineVideo, SourceResult, SeasonPlan, OnlineLocalization, CatalogResult } from '../shared/online';
 import { Credentials } from '../storage/credentials';
 import { OnlineStore } from '../storage/online';
+import { parseOPDS, openSearchTemplate, searchURL, audioFormat, audioManifest } from './opds';
 import { sourceDetails } from '../shared/sourceDetails';
 
 const resource = z.union([z.string(),z.object({ name: z.string(),types: z.array(z.string()).optional(),idPrefixes: z.array(z.string()).optional() })]);
-const manifestSchema = z.object({ id: z.string().max(200),name: z.string().max(200),description: z.string().max(5000).default(''),resources: z.array(resource).max(30),types: z.array(z.string()).max(30),idPrefixes: z.array(z.string()).optional(),catalogs: z.array(z.object({ id: z.string().max(300),type: z.string(),name: z.string().optional(),extra: z.array(z.object({ name: z.string(),isRequired: z.boolean().optional(),options: z.array(z.string()).optional() })).optional() })).max(100).default([]) });
-const installedSchema = z.array(z.object({ id: z.string().uuid(),url: z.string(),enabled: z.boolean(),manifest: manifestSchema })).max(50);
+const manifestSchema = z.object({ id: z.string().max(200),name: z.string().max(200),description: z.string().max(5000).default(''),resources: z.array(resource).max(30),types: z.array(z.string()).max(30),idPrefixes: z.array(z.string()).optional(),catalogs: z.array(z.object({ id: z.string().max(300),type: z.string(),name: z.string().optional(),extra: z.array(z.object({ name: z.string(),isRequired: z.boolean().optional(),options: z.array(z.string()).optional() })).optional() })).max(200).default([]) });
+const opdsSchema = z.object({ search: z.string().optional(),catalogs: z.array(z.object({ id: z.string(),url: z.string() })).max(51) });
+const bookLinksSchema = z.array(z.object({ addonId: z.string().uuid(),id: z.string(),links: z.array(z.object({ url: z.string(),name: z.string(),format: z.string().optional(),external: z.boolean(),manifest: z.boolean().optional() })).max(30) })).max(1000);
+const installedSchema = z.array(z.object({ id: z.string().uuid(),url: z.string(),enabled: z.boolean(),kind: z.enum(['stremio','opds']).default('stremio'),opds: opdsSchema.optional(),manifest: manifestSchema })).max(50);
 type Installed = z.infer<typeof installedSchema>[number];
 export interface RawSource { url?: string; infoHash?: string; fileIdx?: number; sources?: string[]; behaviorHints?: { filename?: string; proxyHeaders?: { request?: Record<string,string> } } }
 export interface BoundSource { summary: OnlineSource; raw: RawSource; item: OnlineItem; video?: OnlineVideo }
@@ -16,7 +19,7 @@ const text = (value: unknown,limit = 10000) => typeof value === 'string' ? value
 export function transportURL(value: string) {
   let source = value.trim(); if (source.startsWith('stremio://')) source = `https://${source.slice(10)}`;
   const url = new URL(source);
-  if (!['http:','https:'].includes(url.protocol) || url.username || url.password) throw new Error('Use um link HTTP(S) de manifest.json, sem usuário ou senha no endereço.');
+  if (!['http:','https:'].includes(url.protocol) || url.username || url.password) throw new Error('Use um link HTTP(S), sem usuário ou senha no endereço.');
   url.hash = ''; return url;
 }
 export function sameSource(a: OnlineSource,b: OnlineSource) { return a.addonId === b.addonId && a.name === b.name && a.provider === b.provider && a.releaseGroup === b.releaseGroup; }
@@ -24,30 +27,40 @@ export class Addons {
   private installed: Installed[] = [];
   private references = new Map<string,BoundSource>();
   private plans = new Map<string,SeasonPlan>();
+  private bookLinks: z.infer<typeof bookLinksSchema> = [];
+  private bookPersist = Promise.resolve();
   private images = new Map<string,string>();
   private imageIds = new Map<string,string>();
   private controller = new AbortController();
   constructor(private credentials: Credentials,readonly store: OnlineStore,private translate?: (item: OnlineItem) => Promise<OnlineLocalization | null>) {}
   async initialize() {
     const saved = await this.credentials.loadDocument('addons');
-    this.installed = saved === null ? [{ id: 'f60fa3c7-e121-4452-bc0b-907d580af250',url: 'https://v3-cinemeta.strem.io/manifest.json',enabled: true,manifest: manifestSchema.parse({ id: 'com.linvo.cinemeta',name: 'Cinemeta',description: 'Catálogo de filmes e séries do Stremio.',resources: ['catalog','meta'],types: ['movie','series'],idPrefixes: ['tt'],catalogs: ['movie','series'].map(type => ({ type,id: 'top',name: type === 'movie' ? 'Filmes populares' : 'Séries populares',extra: [{ name: 'search' },{ name: 'skip' },{ name: 'genre',options: ['Action','Adventure','Animation','Comedy','Crime','Documentary','Drama','Family','Fantasy','History','Horror','Mystery','Romance','Sci-Fi','Thriller'] }] })) }) }] : installedSchema.parse(saved);
+    this.bookLinks = bookLinksSchema.parse(await this.credentials.loadDocument('book-links') ?? []);
+    this.installed = saved === null ? [{ kind: 'stremio',id: 'f60fa3c7-e121-4452-bc0b-907d580af250',url: 'https://v3-cinemeta.strem.io/manifest.json',enabled: true,manifest: manifestSchema.parse({ id: 'com.linvo.cinemeta',name: 'Cinemeta',description: 'Catálogo de filmes e séries do Stremio.',resources: ['catalog','meta'],types: ['movie','series'],idPrefixes: ['tt'],catalogs: ['movie','series'].map(type => ({ type,id: 'top',name: type === 'movie' ? 'Filmes populares' : 'Séries populares',extra: [{ name: 'search' },{ name: 'skip' },{ name: 'genre',options: ['Action','Adventure','Animation','Comedy','Crime','Documentary','Drama','Family','Fantasy','History','Horror','Mystery','Romance','Sci-Fi','Thriller'] }] })) }) }] : installedSchema.parse(saved);
+    let migrated = false;
+    for (const addon of this.installed) if (addon.kind === 'opds' && !addon.manifest.types.includes('audiobook')) {
+      addon.manifest.types.push('audiobook');
+      addon.manifest.catalogs.push(...addon.manifest.catalogs.filter(c => c.type === 'book').map(c => ({ ...c,type: 'audiobook',name: c.id === 'root' ? 'Audiobooks' : c.name })));
+      migrated = true;
+    }
+    if (migrated) await this.persist();
     if (saved === null) {
-      this.installed.push({ id: '6d55f2e7-d36c-47fa-b88c-58ce883a04b3',url: 'https://torrentio.strem.fun/manifest.json',enabled: true,manifest: manifestSchema.parse({ id: 'com.stremio.torrentio.addon',name: 'Torrentio',description: 'Fontes torrent para filmes e séries. Você pode substituir a configuração padrão por um link personalizado.',resources: [{ name: 'stream',types: ['movie','series'],idPrefixes: ['tt'] }],types: ['movie','series'],catalogs: [] }) });
+      this.installed.push({ kind: 'stremio',id: '6d55f2e7-d36c-47fa-b88c-58ce883a04b3',url: 'https://torrentio.strem.fun/manifest.json',enabled: true,manifest: manifestSchema.parse({ id: 'com.stremio.torrentio.addon',name: 'Torrentio',description: 'Fontes torrent para filmes e séries. Você pode substituir a configuração padrão por um link personalizado.',resources: [{ name: 'stream',types: ['movie','series'],idPrefixes: ['tt'] }],types: ['movie','series'],catalogs: [] }) });
       await this.persist();
     }
   }
-  list(): AddonSummary[] { return this.installed.map(addon => ({ id: addon.id,name: addon.manifest.name,description: addon.manifest.description,host: new URL(addon.url).host,enabled: addon.enabled,resources: addon.manifest.resources.map(r => typeof r === 'string' ? r : r.name),catalogs: addon.manifest.catalogs.filter(c => ['movie','series'].includes(c.type)).map(c => ({ id: c.id,type: c.type as OnlineType,name: c.name ?? c.id,search: !!c.extra?.some(e => e.name === 'search'),pagination: !!c.extra?.some(e => e.name === 'skip'),genres: c.extra?.find(e => e.name === 'genre')?.options ?? [] })) })); }
+  list(): AddonSummary[] { return this.installed.map(addon => ({ id: addon.id,name: addon.manifest.name,description: addon.manifest.description,host: new URL(addon.url).host,enabled: addon.enabled,kind: addon.kind,types: addon.manifest.types,resources: addon.manifest.resources.map(r => typeof r === 'string' ? r : r.name),sourceResources: addon.manifest.resources.filter(r => (typeof r === 'string' ? r : r.name) === 'stream').map(r => typeof r === 'string' ? { types: addon.manifest.types,idPrefixes: addon.manifest.idPrefixes } : { types: r.types ?? addon.manifest.types,idPrefixes: r.idPrefixes }),catalogs: addon.manifest.catalogs.filter(c => ['movie','series','book','audiobook'].includes(c.type)).map(c => ({ id: c.id,type: c.type as OnlineType,name: c.name ?? c.id,search: !!c.extra?.some(e => e.name === 'search'),searchRequired: !!c.extra?.some(e => e.name === 'search' && e.isRequired),pagination: !!c.extra?.some(e => e.name === 'skip'),genres: c.extra?.find(e => e.name === 'genre')?.options ?? [] })) })); }
   private async persist() { await this.credentials.saveDocument('addons',this.installed); }
   private get(id: string) { const addon = this.installed.find(a => a.id === id); if (!addon) throw new Error('Complemento não encontrado.'); return addon; }
   private supports(addon: Installed,name: string,type: OnlineType,id: string) {
     if (!addon.enabled) return false;
     return addon.manifest.resources.some(resource => {
       const r = typeof resource === 'string' ? { name: resource } : resource;
-      const prefixes = r.idPrefixes ?? addon.manifest.idPrefixes;
+      const prefixes = typeof resource === 'string' ? addon.manifest.idPrefixes : r.idPrefixes;
       return r.name === name && (r.types ?? addon.manifest.types).includes(type) && (!prefixes?.length || prefixes.some(prefix => id.startsWith(prefix)));
     });
   }
-  private async json(url: string,limit = 5_000_000) {
+  private async document(url: string,limit = 5_000_000) {
     const signal = AbortSignal.any([this.controller.signal,AbortSignal.timeout(25000)]);
     try {
       const response = await fetch(url,{ signal });
@@ -55,17 +68,39 @@ export class Addons {
       if (!response.body) throw new Error('Resposta vazia do complemento.');
       const reader = response.body.getReader(); const chunks: Uint8Array[] = []; let size = 0;
       while (true) { const { done,value } = await reader.read(); if (done) break; size += value.length; if (size > limit) { await reader.cancel(); throw new Error('A resposta do complemento excedeu o limite.'); } chunks.push(value); }
-      return JSON.parse(Buffer.concat(chunks).toString('utf8'));
+      return { body: Buffer.concat(chunks).toString('utf8'),url: response.url || url };
     } catch (error: any) { if (error.name === 'TimeoutError' || error.name === 'AbortError') throw new Error('A consulta foi interrompida ou demorou demais.'); if (error instanceof SyntaxError || error instanceof TypeError) throw new Error('Não foi possível consultar o complemento. Verifique o link e a conexão.'); throw error; }
   }
+  private async json(url: string,limit = 5_000_000) { return JSON.parse((await this.document(url,limit)).body); }
   async install(value: string) {
-    const url = transportURL(value);
-    if (!url.pathname.endsWith('/manifest.json')) throw new Error('Cole o link de instalação que termina em /manifest.json.');
-    const manifest = manifestSchema.parse(await this.json(url.href,1_000_000));
-    const previous = this.installed.find(a => a.url === url.href || a.manifest.id === manifest.id);
-    const next: Installed = { id: previous?.id ?? randomUUID(),url: url.href,manifest,enabled: true };
+    const initial = transportURL(value); const candidates = [initial];
+    if (!initial.pathname.endsWith('/manifest.json')) {
+      const candidate = new URL(initial); candidate.pathname = `${candidate.pathname.replace(/\/(?:configure)?$/, '').replace(/\/$/,'')}/manifest.json`;
+      candidates.push(candidate);
+    }
+    let detected: Omit<Installed,'id'|'enabled'> | undefined;
+    for (const candidate of candidates) {
+      try {
+        const response = await this.document(candidate.href,1_000_000);
+        let json: unknown; try { json = JSON.parse(response.body); } catch { /* OPDS can be XML. */ }
+        const parsed = manifestSchema.safeParse(json);
+        if (parsed.success) { const base = transportURL(response.url); if (!base.pathname.endsWith('/manifest.json')) base.pathname = `${base.pathname.replace(/\/$/,'')}/manifest.json`; detected = { kind: 'stremio',url: base.href,manifest: parsed.data }; break; }
+        const feed = parseOPDS(response.body,response.url);
+        let search = feed.search?.url;
+        if (feed.search?.openSearch) { const description = await this.document(feed.search.url,250_000); search = openSearchTemplate(description.body,description.url); }
+        const catalogs = [{ id: 'root',url: response.url },...feed.navigation.map((link,index) => ({ id: `section-${index}`,url: link.url }))];
+        detected = { kind: 'opds',url: transportURL(response.url).href,opds: { search,catalogs },manifest: manifestSchema.parse({ id: `opds.${createHash('sha256').update(response.url).digest('hex')}`,name: feed.name,description: 'Catálogo OPDS de livros e audiobooks.',types: ['book','audiobook'],resources: ['catalog','meta','stream'],catalogs: ['book','audiobook'].flatMap(type => catalogs.map((c,index) => ({ id: c.id,type,name: index ? feed.navigation[index-1].name : type === 'audiobook' ? 'Audiobooks' : 'Livros',extra: search ? [{ name: 'search' }] : [] }))) }) };
+        break;
+      } catch { /* Try the conventional manifest endpoint after the supplied URL. */ }
+    }
+    if (!detected) throw new Error('Não foi possível identificar a fonte. Cole um link de complemento Stremio (manifest.json, stremio:// ou endereço base) ou de catálogo de livros OPDS. Confira a conexão e a configuração da fonte.');
+    const previous = this.installed.find(a => a.url === detected!.url || a.manifest.id === detected!.manifest.id);
+    if (!previous && this.installed.length >= 50) throw new Error('O limite é de 50 fontes instaladas. Remova uma antes de adicionar outra.');
+    const next: Installed = { ...detected,id: previous?.id ?? randomUUID(),enabled: true };
     const old = this.installed; this.installed = [...this.installed.filter(a => a !== previous),next];
     try { await this.persist(); } catch (error) { this.installed = old; throw error; }
+    for (const [key,reference] of this.references) if (reference.summary.addonId === next.id) this.references.delete(key);
+    this.plans.clear();
   }
   async change(action: 'remove'|'enable'|'disable',id: string) {
     this.get(id); const old = this.installed;
@@ -74,7 +109,7 @@ export class Addons {
     for (const [key,reference] of this.references) if (reference.summary.addonId === id) this.references.delete(key);
     this.plans.clear();
   }
-  configurationURL(id: string) { const url = new URL(this.get(id).url); url.pathname = '/configure'; url.search = ''; return url.href; }
+  configurationURL(id: string) { const addon = this.get(id); const url = new URL(addon.url); if (addon.kind === 'opds') return url.href; url.pathname = '/configure'; url.search = ''; return url.href; }
   private route(addon: Installed,resource: string,type: OnlineType,id: string,extra?: Record<string,string>) {
     const base = new URL(addon.url); const suffix = extra && Object.keys(extra).length ? `/${new URLSearchParams(extra).toString()}` : '';
     base.pathname = `${base.pathname.slice(0,-'manifest.json'.length)}${resource}/${type}/${encodeURIComponent(id)}${suffix}.json`;
@@ -103,14 +138,16 @@ export class Addons {
   }
   private expose(item: OnlineItem) { return { ...item,poster: this.image(item.poster),background: this.image(item.background) }; }
   private cache(addonId: string,data: any,expectedType: OnlineType) {
-    const id = idString.parse(data.id); const type = z.enum(['movie','series']).parse(data.type ?? expectedType);
+    const id = idString.parse(data.id); const type = z.enum(['movie','series','book','audiobook']).parse(data.type ?? expectedType);
+    if (type !== expectedType) throw new Error('O catálogo retornou um tipo de título diferente do solicitado.');
     const rating = Number(data.imdbRating);
-    return this.store.cache({ id,addonId,type,name: text(data.name,500) || id,year: text(data.releaseInfo,30),description: text(data.description),poster: text(data.poster,5000) || undefined,background: text(data.background,5000) || undefined,genres: Array.isArray(data.genres) ? data.genres.filter((x: any) => typeof x === 'string').slice(0,30) : [],imdbRating: data.imdbRating && Number.isFinite(rating) && rating >= 0 && rating <= 10 ? rating : null,videos: (Array.isArray(data.videos) ? data.videos : []).slice(0,10000).filter((v: any) => typeof v.id === 'string' && Number.isInteger(v.season) && Number.isInteger(v.episode)).map((v: any) => ({ id: v.id,title: text(v.title,500) || `Episódio ${v.episode}`,season: v.season,episode: v.episode,overview: text(v.overview),released: text(v.released,100) })) });
+    return this.store.cache({ id,addonId,type,name: text(data.name,500) || id,year: text(data.releaseInfo,30),description: text(data.description),narrators: type === 'audiobook' && Array.isArray(data.narrators) ? data.narrators.map((person: unknown) => text(person,500)).filter(Boolean).slice(0,30) : undefined,authors: ['book','audiobook'].includes(type) ? (Array.isArray(data.authors ?? data.author) ? data.authors ?? data.author : [data.author]).map((author: unknown) => text(author,500)).filter(Boolean).slice(0,30) : undefined,poster: text(data.poster,5000) || undefined,background: text(data.background,5000) || undefined,genres: Array.isArray(data.genres) ? data.genres.filter((x: any) => typeof x === 'string').slice(0,30) : [],imdbRating: data.imdbRating && Number.isFinite(rating) && rating >= 0 && rating <= 10 ? rating : null,videos: (Array.isArray(data.videos) ? data.videos : []).slice(0,10000).filter((v: any) => typeof v.id === 'string' && Number.isInteger(v.season) && Number.isInteger(v.episode)).map((v: any) => ({ id: v.id,title: text(v.title,500) || `Episódio ${v.episode}`,season: v.season,episode: v.episode,overview: text(v.overview),released: text(v.released,100) })) });
   }
   async catalog(addonId: string,catalogId: string,type: OnlineType,query = '',skip = 0,genre = '') {
     const addon = this.get(addonId); if (!addon.enabled) throw new Error('Ative o complemento para usar seu catálogo.');
     const catalog = addon.manifest.catalogs.find(c => c.id === catalogId && c.type === type); if (!catalog) throw new Error('Catálogo não encontrado.');
     const extras: Record<string,string> = {};
+    if (addon.kind === 'opds') return this.opdsCatalog(addon,type,catalogId,query);
     if (query) { if (!catalog.extra?.some(e => e.name === 'search')) throw new Error('Este catálogo não oferece busca.'); extras.search = query; }
     if (skip) { if (!catalog.extra?.some(e => e.name === 'skip')) throw new Error('Este catálogo não oferece paginação.'); extras.skip = String(skip); }
     if (genre) extras.genre = genre;
@@ -119,8 +156,38 @@ export class Addons {
     if (!Array.isArray(data.metas)) throw new Error('O complemento retornou um catálogo inválido.');
     return data.metas.slice(0,250).flatMap((meta: any) => { try { return [this.expose(this.cache(addonId,meta,type))]; } catch { return []; } });
   }
+  private async opdsCatalog(addon: Installed,type: OnlineType,catalogId: string,query: string) {
+    if (!['book','audiobook'].includes(type) || !addon.opds) throw new Error('Esta fonte oferece apenas livros e audiobooks.');
+    const catalog = addon.opds.catalogs.find(c => c.id === catalogId); if (!catalog) throw new Error('Catálogo não encontrado.');
+    if (query && !addon.opds.search) throw new Error('Esta fonte de livros não oferece busca.');
+    const url = query ? searchURL(addon.opds.search!,query) : catalog.url;
+    const response = await this.document(url); const feed = parseOPDS(response.body,response.url);
+    const items = feed.books.filter(book => book.type === type).map(book => {
+      const id = `opds:${type === 'audiobook' ? 'audio:' : ''}${createHash('sha256').update(book.id).digest('hex')}`;
+      this.bookLinks = this.bookLinks.filter(entry => entry.addonId !== addon.id || entry.id !== id);
+      this.bookLinks.push({ addonId: addon.id,id,links: book.links });
+      return this.expose(this.store.cache({ id,addonId: addon.id,type,name: book.name,year: book.year,description: book.description,poster: book.poster,authors: book.authors,narrators: book.narrators,genres: [],imdbRating: null,videos: [] }));
+    });
+    this.bookLinks = this.bookLinks.slice(-1000); const snapshot = structuredClone(this.bookLinks);
+    const task = this.bookPersist.then(() => this.credentials.saveDocument('book-links',snapshot)); this.bookPersist = task.catch(() => {}); await task;
+    return items;
+  }
+  async search(type: OnlineType,query: string,onlyAddon?: string): Promise<CatalogResult> {
+    if (onlyAddon) this.get(onlyAddon);
+    const candidates = this.list().filter(addon => addon.enabled && (!onlyAddon || addon.id === onlyAddon)).flatMap(addon => addon.catalogs.filter(c => c.type === type).filter((c,index) => addon.kind !== 'opds' || index === 0).map(catalog => ({ addon,catalog })));
+    const supported = candidates.filter(({ catalog }) => query.trim() ? catalog.search : !catalog.searchRequired); const results: { items: OnlineItem[]; error?: string }[] = [];
+    for (let i = 0; i < supported.length; i += 4) {
+      results.push(...await Promise.all(supported.slice(i,i+4).map(async ({ addon,catalog }) => {
+        try { return { items: await this.catalog(addon.id,catalog.id,type,query) }; }
+        catch (error: any) { return { items: [],error: `${addon.name} · ${catalog.name}: ${error.message}` }; }
+      })));
+    }
+    const seen = new Set<string>();
+    return { items: results.flatMap(result => result.items).filter(item => { const key = `${item.addonId}:${item.type}:${item.id}`; if (seen.has(key)) return false; seen.add(key); return true; }),errors: results.flatMap(result => result.error ? [result.error] : []),searched: supported.length,skipped: candidates.length-supported.length };
+  }
   async meta(addonId: string,type: OnlineType,id: string) {
-    this.get(addonId);
+    const requested = this.get(addonId);
+    if (requested.kind === 'opds') return this.expose(this.store.get(type,id));
     const candidates = this.installed.filter(a => this.supports(a,'meta',type,id)).sort((a,b) => Number(b.id === addonId)-Number(a.id === addonId));
     for (const addon of candidates) {
       try { const data = await this.json(this.route(addon,'meta',type,id)); if (data.meta?.id === id) return this.expose(await this.localize(this.cache(addonId,data.meta,type))); } catch { /* A second metadata addon or the saved preview may still work. */ }
@@ -128,6 +195,7 @@ export class Addons {
     return this.expose(await this.localize(this.store.get(type,id)));
   }
   private async localize(item: OnlineItem) {
+    if (['book','audiobook'].includes(item.type)) return item;
     const previous = this.store.localization(item.type,item.id);
     if (this.translate && (!previous || Date.now()-Date.parse(previous.updatedAt) >= 7*86400000)) {
       try { const value = await this.translate(item); if (value) this.store.saveLocalization(item.type,item.id,{ ...value,description: value.description || previous?.description,genres: value.genres?.length ? value.genres : previous?.genres }); }
@@ -139,12 +207,31 @@ export class Addons {
   source(id: string) { const source = this.references.get(id); if (!source || !this.get(source.summary.addonId).enabled) throw new Error('Esta fonte expirou. Busque as opções novamente.'); return source; }
   getStreamForSource(sourceId: string): BoundSource { return this.source(sourceId); }
   async sources(addonId: string,type: OnlineType,id: string,videoId: string,onlyAddon?: string): Promise<SourceResult> {
-    this.get(addonId); const item = this.store.get(type,id);
+    this.get(addonId); if (onlyAddon) this.get(onlyAddon); const item = this.store.get(type,id);
     const video = item.videos.find(v => v.id === videoId);
-    if (type === 'movie' ? videoId !== id : !video) throw new Error('Episódio inválido para esta série.');
+    if (type !== 'series' ? videoId !== id : !video) throw new Error('Episódio inválido para esta série.');
     const sources: OnlineSource[] = []; const errors: string[] = [];
     await Promise.all(this.installed.filter(a => (!onlyAddon || a.id === onlyAddon) && this.supports(a,'stream',type,videoId)).map(async addon => {
       try {
+        if (addon.kind === 'opds') {
+          const links = this.bookLinks.find(entry => entry.addonId === addon.id && entry.id === id)?.links ?? [];
+          let part = 0;
+          for (const original of links) {
+            let resolved = [original];
+            if (type === 'audiobook' && original.manifest) {
+              try { const document = await this.document(original.url); resolved = audioManifest(document.body,document.url); }
+              catch (error: any) { errors.push(`${addon.manifest.name}: ${error.message}`); }
+            }
+            for (const link of resolved) {
+              const chapter = original.manifest && !link.external ? ++part : undefined;
+              if (this.references.size >= 10000) this.references.delete(this.references.keys().next().value!);
+              const raw: RawSource = { url: transportURL(link.url).href,behaviorHints: { filename: link.format ? `livro.${link.format}` : undefined } };
+              const summary: OnlineSource = { id: randomUUID(),addonId: addon.id,addonName: addon.manifest.name,name: link.name,description: link.external ? 'Acesso pelo navegador da fonte.' : type === 'audiobook' ? 'Áudio oferecido pelo catálogo.' : 'Arquivo de livro oferecido pelo catálogo.',transport: 'http',provider: '',releaseGroup: '',external: link.external,format: link.format,part: chapter };
+              this.references.set(summary.id,{ summary,raw,item }); sources.push(summary);
+            }
+          }
+          return;
+        }
         const data = await this.json(this.route(addon,'stream',type,videoId)); if (!Array.isArray(data.streams)) throw new Error('Resposta de fontes inválida.');
         for (const stream of data.streams.slice(0,250)) {
           if (!stream || typeof stream !== 'object') continue;
@@ -161,7 +248,7 @@ export class Addons {
           const headers = stream.behaviorHints?.proxyHeaders?.request;
           raw.behaviorHints = { filename,proxyHeaders: { request: headers && typeof headers === 'object' ? Object.fromEntries(Object.entries(headers).filter(([key,value]) => /^[a-z\d-]{1,100}$/i.test(key) && typeof value === 'string' && !/[\r\n]/.test(value) && value.length <= 8000)) as Record<string,string> : {} } };
           const details = sourceDetails({ ...stream,name,description,behaviorHints: { filename,videoSize: stream.behaviorHints?.videoSize } });
-          const summary: OnlineSource = { id: randomUUID(),addonId: addon.id,addonName: addon.manifest.name,name,description,transport: raw.infoHash ? 'torrent' : 'http',provider,releaseGroup,details };
+          const summary: OnlineSource = { format: type === 'audiobook' && raw.url ? audioFormat('',raw.url) : undefined,id: randomUUID(),addonId: addon.id,addonName: addon.manifest.name,name,description,transport: raw.infoHash ? 'torrent' : 'http',provider,releaseGroup,details };
           if (this.references.size >= 10000) this.references.delete(this.references.keys().next().value!);
           this.references.set(summary.id,{ summary,raw,item,video }); sources.push(summary);
         }
