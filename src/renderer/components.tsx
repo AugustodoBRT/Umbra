@@ -4,7 +4,7 @@ import type { Work, MediaFile } from '../shared/types';
 export const bytes = (n: number) => n >= 1e12 ? `${(n/1e12).toFixed(1)} TB` : n >= 1e9 ? `${(n/1e9).toFixed(1)} GB` : n >= 1e6 ? `${(n/1e6).toFixed(0)} MB` : n >= 1000 ? `${(n/1000).toFixed(0)} KB` : `${n} B`;
 export const time = (n: number) => `${Math.floor(n/3600) ? `${Math.floor(n/3600)}:` : ''}${Math.floor(n/60)%60 < 10 && n >= 3600 ? '0' : ''}${Math.floor(n/60)%60}:${String(Math.floor(n%60)).padStart(2,'0')}`;
 export const minutes = (n: number) => n ? `${Math.round(n/60)} min` : 'Duração indisponível';
-export const asset = (value?: string) => value ? `cinessd://asset/${value}` : undefined;
+export const asset = (value?: string) => value ? /^https?:\/\//.test(value) ? value : `cinessd://asset/${value}` : undefined;
 export const thumbnail = (file?: MediaFile) => file ? asset(`Biblioteca/miniaturas/${file.id}.jpg`) : undefined;
 export const watched = (work: Work) => work.watched ?? (work.personal.watched || work.files.some(x => x.completed));
 export function Artwork({ work, landscape = false, className = '' }: { work: Work; landscape?: boolean; className?: string }) {

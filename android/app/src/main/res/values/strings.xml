@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Umbra</string>
+    <string name="title_activity_main">Umbra</string>
+    <string name="package_name">io.cinessd.android</string>
+    <string name="custom_url_scheme">io.cinessd.android</string>
+</resources>

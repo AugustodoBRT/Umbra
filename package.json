@@ -21,9 +21,16 @@
     "prepare:windows": "node scripts/prepare-windows.mjs && node scripts/build-torrent-worker.mjs",
     "package:windows": "npm run build && electron-builder --win nsis portable --x64 --publish never",
     "test:player": "node --import tsx scripts/player-desktop-test.ts",
-    "test:windows": "node --import tsx scripts/windows-smoke-test.ts"
+    "test:windows": "node --import tsx scripts/windows-smoke-test.ts",
+    "android:web": "vite build --config vite.mobile.config.ts",
+    "android:apk": "node scripts/android/build.mjs",
+    "android:release": "npm run android:apk && node scripts/android/publish.mjs",
+    "android:signing": "node scripts/android/configure-signing.mjs"
   },
   "dependencies": {
+    "@capacitor/android": "^8.6.0",
+    "@capacitor/core": "^8.6.0",
+    "@noble/hashes": "^2.4.0",
     "fast-xml-parser": "^5.11.2",
     "lucide-react": "^1.40.0",
     "react": "^19.3.0",
@@ -31,6 +38,7 @@
     "zod": "^4.0.0"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.6.0",
     "@types/node": "^24.13.6",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",

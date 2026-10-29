@@ -13,3 +13,7 @@ packaging/windows/worker-build/
 packaging/windows/worker-dist/
 Biblioteca/
 *.partial
+
+*.jks
+*.keystore
+*.apk

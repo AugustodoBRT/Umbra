@@ -1,8 +1,8 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { AddonSummary, OnlineItem, OnlineSource, OnlineType, OnlineVideo, SourceResult, SeasonPlan, OnlineLocalization, CatalogResult } from '../shared/online';
-import { Credentials } from '../storage/credentials';
-import { OnlineStore } from '../storage/online';
+import type { Credentials } from '../storage/credentials';
+import type { OnlineStore } from '../storage/online';
 import { parseOPDS, openSearchTemplate, searchURL, audioFormat, audioManifest } from './opds';
 import { sourceDetails } from '../shared/sourceDetails';
 
@@ -15,6 +15,7 @@ type Installed = z.infer<typeof installedSchema>[number];
 export interface RawSource { url?: string; infoHash?: string; fileIdx?: number; sources?: string[]; behaviorHints?: { filename?: string; proxyHeaders?: { request?: Record<string,string> } } }
 export interface BoundSource { summary: OnlineSource; raw: RawSource; item: OnlineItem; video?: OnlineVideo }
 const idString = z.string().min(1).max(500);
+function joinChunks(chunks: Uint8Array[]) { const result = new Uint8Array(chunks.reduce((size,chunk) => size+chunk.length,0)); let offset = 0; for (const chunk of chunks) { result.set(chunk,offset); offset += chunk.length; } return result; }
 const text = (value: unknown,limit = 10000) => typeof value === 'string' ? value.slice(0,limit) : '';
 export function transportURL(value: string) {
   let source = value.trim(); if (source.startsWith('stremio://')) source = `https://${source.slice(10)}`;
@@ -32,7 +33,7 @@ export class Addons {
   private images = new Map<string,string>();
   private imageIds = new Map<string,string>();
   private controller = new AbortController();
-  constructor(private credentials: Credentials,readonly store: OnlineStore,private translate?: (item: OnlineItem) => Promise<OnlineLocalization | null>) {}
+  constructor(private credentials: Pick<Credentials,'loadDocument'|'saveDocument'>,readonly store: Pick<OnlineStore,'cache'|'get'|'localization'|'saveLocalization'|'personal'|'saved'>,private translate?: (item: OnlineItem) => Promise<OnlineLocalization | null>,private runtime: { fetch?: typeof fetch; imageURL?: (url: string) => string } = {}) {}
   async initialize() {
     const saved = await this.credentials.loadDocument('addons');
     this.bookLinks = bookLinksSchema.parse(await this.credentials.loadDocument('book-links') ?? []);
@@ -63,12 +64,12 @@ export class Addons {
   private async document(url: string,limit = 5_000_000) {
     const signal = AbortSignal.any([this.controller.signal,AbortSignal.timeout(25000)]);
     try {
-      const response = await fetch(url,{ signal });
+      const response = await (this.runtime.fetch ?? fetch)(url,{ signal });
       if (!response.ok) throw new Error(response.status === 429 ? 'Limite de consultas atingido; tente novamente mais tarde.' : response.status === 401 || response.status === 403 ? 'Confira a configuração e a chave deste complemento.' : 'O complemento não respondeu à consulta.');
       if (!response.body) throw new Error('Resposta vazia do complemento.');
       const reader = response.body.getReader(); const chunks: Uint8Array[] = []; let size = 0;
       while (true) { const { done,value } = await reader.read(); if (done) break; size += value.length; if (size > limit) { await reader.cancel(); throw new Error('A resposta do complemento excedeu o limite.'); } chunks.push(value); }
-      return { body: Buffer.concat(chunks).toString('utf8'),url: response.url || url };
+      return { body: new TextDecoder().decode(joinChunks(chunks)),url: response.url || url };
     } catch (error: any) { if (error.name === 'TimeoutError' || error.name === 'AbortError') throw new Error('A consulta foi interrompida ou demorou demais.'); if (error instanceof SyntaxError || error instanceof TypeError) throw new Error('Não foi possível consultar o complemento. Verifique o link e a conexão.'); throw error; }
   }
   private async json(url: string,limit = 5_000_000) { return JSON.parse((await this.document(url,limit)).body); }
@@ -118,6 +119,7 @@ export class Addons {
   private image(value: unknown) {
     if (typeof value !== 'string' || !value) return undefined;
     let url: URL; try { url = transportURL(value); } catch { return undefined; }
+    if (this.runtime.imageURL) return this.runtime.imageURL(url.href);
     let id = this.imageIds.get(url.href);
     if (!id) {
       if (this.images.size >= 5000) { const first = this.images.keys().next().value!; this.imageIds.delete(this.images.get(first)!); this.images.delete(first); }
@@ -128,12 +130,12 @@ export class Addons {
   async imageResponse(id: string) {
     const url = this.images.get(id); if (!url) return new Response('',{ status: 404 });
     try {
-      const response = await fetch(url,{ signal: AbortSignal.any([this.controller.signal,AbortSignal.timeout(15000)]) });
+      const response = await (this.runtime.fetch ?? fetch)(url,{ signal: AbortSignal.any([this.controller.signal,AbortSignal.timeout(15000)]) });
       const type = response.headers.get('content-type')?.split(';')[0];
       if (!response.ok || !type || !['image/jpeg','image/png','image/webp','image/avif'].includes(type) || !response.body) return new Response('',{ status: 404 });
       const chunks: Uint8Array[] = []; let size = 0; const reader = response.body.getReader();
       while (true) { const { done,value } = await reader.read(); if (done) break; size += value.length; if (size > 5_000_000) { await reader.cancel(); return new Response('',{ status: 413 }); } chunks.push(value); }
-      return new Response(Buffer.concat(chunks),{ headers: { 'content-type': type,'cache-control': 'private, max-age=3600' } });
+      return new Response(joinChunks(chunks),{ headers: { 'content-type': type,'cache-control': 'private, max-age=3600' } });
     } catch { return new Response('',{ status: 404 }); }
   }
   private expose(item: OnlineItem) { return { ...item,poster: this.image(item.poster),background: this.image(item.background) }; }

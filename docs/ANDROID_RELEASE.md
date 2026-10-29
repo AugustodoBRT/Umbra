@@ -1,0 +1,9 @@
+Umbra para Android 9 ou superior. Instale `Umbra-android.apk`. Nas versões seguintes, o próprio aplicativo avisa quando há atualização e oferece **Baixar e atualizar**. O Android solicita autorização para instalar APKs e pede confirmação antes da instalação.
+
+Inclui filmes, séries, fontes Stremio/OPDS, livros, audiobooks, avaliações, listas, histórico, reprodução nativa e downloads HTTP/torrent. Os capítulos anunciados por manifestos de audiobooks podem ser escolhidos individualmente.
+
+Os dados da versão Android ficam no armazenamento privado do aplicativo; mídias podem ser importadas de pastas autorizadas, incluindo armazenamento USB acessível pelo Android. A reprodução usa Media3 e os codecs disponíveis no dispositivo. Não compartilha diretamente o banco SQLite desktop de um SSD, não inclui mpv/FFmpeg desktop e não remove DRM. O aplicativo não é uma cópia da versão Windows empacotada em um navegador.
+
+Para gerar e publicar uma atualização localmente, use `npm run android:release` depois do commit e push. `npm run android:apk` gera apenas um APK de teste local, sem anunciá-lo aos usuários. O fluxo Android do GitHub também gera, assina e publica uma atualização em cada push de código na `main`, ou quando executado manualmente. Cada compilação recebe um número de versão crescente. O aplicativo verifica o arquivo oficial ao abrir, ao voltar à tela e periodicamente enquanto está em uso.
+
+A assinatura é permanente. A chave local fica fora do repositório, em `~/.local/share/umbra/android-signing`; faça backup seguro dessa pasta. O GitHub usa os segredos `ANDROID_KEYSTORE_BASE64`, `ANDROID_STORE_PASSWORD`, `ANDROID_KEY_ALIAS` e `ANDROID_KEY_PASSWORD`. Não recrie a chave para novas versões, pois o Android exige a mesma assinatura para atualizar uma instalação existente. Java 21 e Android SDK 36 são necessários para compilar; informe `JAVA_HOME` e `ANDROID_HOME` se estiverem em outro local.

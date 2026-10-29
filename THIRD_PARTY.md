@@ -25,3 +25,5 @@ As bandeiras dos idiomas são SVGs locais de [flag-icons](https://github.com/lip
 ## Catálogos de livros
 
 A leitura de catálogos OPDS 1 (Atom/XML) e OPDS 2 (JSON) segue as especificações em https://specs.opds.io/. O parser XML usa fast-xml-parser (MIT), de https://github.com/NaturalIntelligence/fast-xml-parser. Conteúdo e disponibilidade dos livros pertencem às respectivas fontes.
+
+A versão Android usa [Capacitor](https://github.com/ionic-team/capacitor) (MIT), [AndroidX Media3](https://github.com/androidx/media) e DocumentFile (Apache 2.0), [libtorrent4j](https://github.com/aldenml/libtorrent4j) (BSD 2-Clause) e libtorrent (BSD 3-Clause). Os binários de libtorrent4j são distribuídos para ARM, ARM64 e x86_64. As dependências e versões estão em `android/app/build.gradle`; os avisos de licença dos projetos originais permanecem aplicáveis.

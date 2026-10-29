@@ -1,0 +1,71 @@
+import { chromium } from 'playwright';
+import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import { createServer } from 'node:http';
+import { once } from 'node:events';
+import { readFile, mkdir } from 'node:fs/promises';
+import path from 'node:path';
+import { mediaTool } from '../../src/runtime/tools';
+import { until } from '../../tests/helpers';
+
+const serial = process.env.UMBRA_ANDROID_SERIAL;
+if (!serial) throw new Error('Informe UMBRA_ANDROID_SERIAL para o emulador de testes com o APK debug instalado.');
+const adb = (args: string[]) => execFileSync(process.env.UMBRA_ADB || 'adb',['-s',serial,...args],{ encoding: 'utf8' }).trim();
+await mkdir('test-results/android',{ recursive: true });
+const movieFile = path.resolve('test-results/android/synthetic.mp4'),audioFile = path.resolve('test-results/android/synthetic.m4b');
+execFileSync(mediaTool('ffmpeg'),['-y','-nostdin','-v','error','-f','lavfi','-i','color=c=teal:s=480x270:r=24:d=30','-f','lavfi','-i','sine=frequency=440:duration=30','-c:v','libx264','-pix_fmt','yuv420p','-c:a','aac','-movflags','+faststart',movieFile]);
+execFileSync(mediaTool('ffmpeg'),['-y','-nostdin','-v','error','-f','lavfi','-i','sine=frequency=440:duration=30','-c:a','aac','-f','mp4',audioFile]);
+const movie = await readFile(movieFile),audio = await readFile(audioFile);let port = 0;
+const item = { id: 'test:android',type: 'movie',name: 'Filme Android Sintético',releaseInfo: '2026',description: 'Arquivo gerado para validar o Android.' };
+const server = createServer((request,response) => {
+  const url = request.url!;response.setHeader('content-type','application/json');
+  if (url.startsWith('/movie.mp4') || url.startsWith('/audio.m4b')) {
+    const bytes = url.startsWith('/audio') ? audio : movie;response.setHeader('content-type',url.startsWith('/audio') ? 'audio/mp4' : 'video/mp4');response.setHeader('accept-ranges','bytes');
+    const range = request.headers.range?.match(/bytes=(\d+)-(\d*)/),start = range ? +range[1] : 0,end = range?.[2] ? Math.min(+range[2],bytes.length-1) : bytes.length-1;
+    if (range) { response.statusCode = 206;response.setHeader('content-range',`bytes ${start}-${end}/${bytes.length}`); } response.setHeader('content-length',end-start+1);response.end(bytes.subarray(start,end+1));return;
+  }
+  if (url.startsWith('/audio-catalog')) response.end(JSON.stringify({ metadata: { title: 'Audiobooks de teste Android' },publications: [{ metadata: { '@type': 'http://schema.org/Audiobook',identifier: 'urn:android:audio',title: 'Audiobook Android Sintético' },links: [{ rel: 'download',href: '/audio.m4b',type: 'audio/mp4' }] }] }));
+  else if (url.endsWith('manifest.json')) response.end(JSON.stringify({ id: `org.umbra.android.${url.startsWith('/second') ? 'second' : 'first'}`,name: url.startsWith('/second') ? 'Fonte Android 2' : 'Fonte Android 1',description: 'Fonte de teste',resources: ['catalog','meta','stream'],types: ['movie'],idPrefixes: ['test:'],catalogs: [{ id: 'top',type: 'movie',name: 'Filmes de teste',extra: [{ name: 'search' }] }] }));
+  else if (url.includes('/catalog/')) response.end(JSON.stringify({ metas: [item] }));
+  else if (url.includes('/meta/')) response.end(JSON.stringify({ meta: item }));
+  else response.end(JSON.stringify({ streams: [{ name: 'HTTP sintético',url: `http://127.0.0.1:${port}/movie.mp4`,behaviorHints: { filename: 'Android.2026.mp4' } }] }));
+});
+server.listen(0,'127.0.0.1');await once(server,'listening');port = (server.address() as any).port;
+adb(['reverse',`tcp:${port}`,`tcp:${port}`]);
+adb(['shell','pm','grant','io.cinessd.android','android.permission.POST_NOTIFICATIONS']);
+adb(['shell','am','start','-n','io.cinessd.android/.MainActivity']);
+let browser: Awaited<ReturnType<typeof chromium.connectOverCDP>>|undefined;
+try {
+  let socket = '';
+  await until(async () => { socket = adb(['shell','cat','/proc/net/unix']).match(/@(webview_devtools_remote_\d+)/)?.[1] || '';return !!socket; },15000);
+  adb(['forward','tcp:19227',`localabstract:${socket}`]);browser = await chromium.connectOverCDP('http://127.0.0.1:19227',{ noDefaults: true });
+  const page = browser.contexts()[0].pages().find(page => page.url().startsWith('https://localhost'))!;assert.ok(page);
+  await page.waitForFunction(() => !!window.cine);
+  for (const addon of await page.evaluate(() => window.cine.addons())) await page.evaluate(id => window.cine.addon('remove',id),addon.id);
+  for (const endpoint of ['first/manifest.json','second/manifest.json','audio-catalog']) await page.evaluate(url => window.cine.installAddon(url),`http://127.0.0.1:${port}/${endpoint}`);
+  const addons = await page.evaluate(() => window.cine.addons());assert.equal(addons.length,3);
+  const results = await page.evaluate(() => window.cine.onlineSearch('movie','Android'));assert.equal(results.items.length,2);
+  const selected = await page.evaluate(id => window.cine.onlineSearch('movie','Android',id),addons[0].id);assert.equal(selected.items.length,1);
+  const sources = await page.evaluate(item => window.cine.onlineSources(item.addonId,item.type,item.id,item.id),results.items[0]);assert.equal(sources.sources.length,2);
+  await page.evaluate(id => window.cine.downloadSource(id),sources.sources[0].id);
+  await until(async () => { const state = await page.evaluate(() => window.cine.snapshot());return state.works.length === 1 && !state.scan.running; },20000);
+  assert.ok((await page.evaluate(() => window.cine.downloads())).jobs.some(job => job.state === 'completed'));
+  const local = (await page.evaluate(() => window.cine.snapshot())).works[0];await page.evaluate(id => window.cine.play(id),local.files[0].id);
+  await until(async () => /state=(?:3|PLAYING\(3\))/.test(adb(['shell','dumpsys','media_session'])),20000);
+  await until(async () => { const state = await page.evaluate(() => window.cine.snapshot());return state.works[0].files[0].position > 2; },15000);
+  await page.evaluate(() => window.cine.control('stop'));
+  const audioAddon = addons.find(addon => addon.kind === 'opds')!;
+  const audioItems = await page.evaluate(id => window.cine.onlineCatalog(id,'root','audiobook','',0,''),audioAddon.id);
+  assert.ok(audioItems.length);const book = audioItems[0];const audioSources = await page.evaluate(item => window.cine.onlineSources(item.addonId,item.type,item.id,item.id),book);
+  await page.evaluate(id => window.cine.playOnlineSource(id),audioSources.sources[0].id);
+  await until(async () => /state=(?:3|PLAYING\(3\))/.test(adb(['shell','dumpsys','media_session'])),20000);await page.evaluate(() => window.cine.control('stop'));
+  await page.evaluate(id => window.cine.downloadSource(id),audioSources.sources[0].id);
+  await until(async () => (await page.evaluate(() => window.cine.downloads())).jobs.filter(job => job.state === 'completed').length === 2,20000);
+  await page.reload();await page.getByRole('button',{ name: 'Abrir navegação' }).waitFor();
+  await page.getByRole('button',{ name: 'Abrir navegação' }).click();await page.getByRole('button',{ name: 'Complementos',exact: true }).first().click();
+  await page.getByRole('heading',{ name: 'Fonte Android 1',exact: true }).waitFor();
+  assert.ok(await page.getByRole('heading',{ name: 'Audiobooks de teste Android',exact: true }).isVisible());
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),true);
+  await page.screenshot({ path: 'test-results/android/app.png',fullPage: true });
+  console.log('Android: fontes por link, busca conjunta/selecionada, downloads, biblioteca, progresso, vídeo e audiobook nativos, persistência e navegação móvel passaram.');
+} finally { await browser?.close();server.closeAllConnections();server.close();adb(['reverse','--remove',`tcp:${port}`]);adb(['forward','--remove','tcp:19227']); }
