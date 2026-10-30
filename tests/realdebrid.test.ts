@@ -68,9 +68,10 @@ test('AudiobookBay usa o Real-Debrid quando há chave e cai no torrent quando el
     assert.deepEqual(await credentials.loadDocument('debrid'),{ realDebrid: 'chave-ok',username: 'augusto' });
     const com = await addons.sources(addon.id,'audiobook',item.id,item.id); assert.equal(com.errors.length,0);
     assert.deepEqual(com.sources.map(s => [s.name,s.part,s.format,s.transport,s.provider]),[['Cap 2.mp3',1,'mp3','http','Real-Debrid'],['Cap 10.mp3',2,'mp3','http','Real-Debrid']]);
+    assert.deepEqual(com.sources[0].tags,['RD+','Parte 1 de 2','MP3','64 Kbps','2 MB']); assert.match(com.sources[0].description,/^Livro/);
     assert.match(addons.getStreamForSource(com.sources[0].id).raw.url!,/^https:\/\/cdn\.real-debrid\.test\//);
     state.torrents.clear(); state.downloaded = false; (addons as any).debridKey = 'chave-ok';
-    const lento = await addons.sources(addon.id,'audiobook',item.id,item.id); assert.equal(lento.sources.length,1); assert.equal(lento.sources[0].transport,'torrent'); assert.match(lento.errors[0],/Real-Debrid.*37%/);
+    const lento = await addons.sources(addon.id,'audiobook',item.id,item.id); assert.equal(lento.sources.length,1); assert.equal(lento.sources[0].transport,'torrent'); assert.match(lento.errors[0],/Real-Debrid.*37%/); assert.equal(lento.sources[0].tags![0],'RD 37%');
     await addons.saveDebrid(null); assert.equal(addons.debrid().realDebrid,false);
   } finally { addons.cancel(); server.close(); server.closeAllConnections(); store.close(); await rm(directory,{ recursive: true,force: true }); }
 });

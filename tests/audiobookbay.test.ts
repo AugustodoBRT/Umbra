@@ -51,7 +51,7 @@ test('instala o AudiobookBay, lista lançamentos, busca e devolve o torrent como
     assert.equal(result.errors.length,0); assert.equal(result.sources.length,1);
     const bound = addons.getStreamForSource(result.sources[0].id);
     assert.equal(bound.raw.infoHash,hash); assert.deepEqual(bound.raw.sources,['tracker:udp://tracker.example.org:1337/announce']);
-    assert.equal(result.sources[0].transport,'torrent'); assert.equal(result.sources[0].format,'m4b'); assert.match(result.sources[0].name,/M4B · 64 Kbps · 351 MB/);
+    assert.equal(result.sources[0].transport,'torrent'); assert.equal(result.sources[0].format,'m4b'); assert.match(result.sources[0].name,/^Dune \u2013 Frank Herbert \[M4B\]/); assert.deepEqual(result.sources[0].tags,['Torrent','M4B','64 Kbps','351 MB']);
     await addons.install(`${base}abss/dune/`); assert.equal(addons.list().filter(a => a.kind === 'abb').length,1);
   } finally { addons.cancel(); server.close(); server.closeAllConnections(); store.close(); await rm(directory,{ recursive: true,force: true }); }
 });

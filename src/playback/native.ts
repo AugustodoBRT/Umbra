@@ -141,7 +141,9 @@ export class NativePlayer {
     const connection=this.ipc;
     let cleanupLoaded=()=>{};
     const loaded=new Promise<void>((resolve,reject) => {
-      const timer=setTimeout(() => reject(new Error(`O vídeo demorou demais para abrir. ${logs}`)),20000);
+      // Torrents and remote links need time to find peers and fetch the first pieces; local files do not.
+      const remote=/^https?:\/\//i.test(String(target));
+      const timer=setTimeout(() => reject(new Error(remote ? `A fonte demorou demais para responder. Tente outra opção, aguarde mais seeders ou use o Real-Debrid. ${logs}` : `O vídeo demorou demais para abrir. ${logs}`)),remote ? 120000 : 20000);
       const listener=(event: any) => {if(event.event==='file-loaded')resolve();else if(event.event==='end-file' && event.reason==='error')reject(new Error('mpv não conseguiu abrir este vídeo.'));};
       const closed=()=>reject(new Error('mpv foi encerrado ao abrir o vídeo.'));
       connection.on('event',listener);connection.once('closed',closed);

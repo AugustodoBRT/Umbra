@@ -13,7 +13,9 @@ export function abbDomain(value: string) {
   if (!['http:','https:'].includes(url.protocol) || url.username || url.password || !url.hostname.includes('.')) throw new Error('Informe o endereço do AudiobookBay, por exemplo audiobookbay.lu.');
   return `${url.protocol}//${url.host}/`;
 }
-export function abbSearchURL(base: string,query: string) { return query.trim() ? `${base}?s=${encodeURIComponent(query.trim())}` : base; }
+export const abbPageSize = 28;
+// The site paginates as /page/N/, with or without a search term.
+export function abbSearchURL(base: string,query: string,page = 1) { return `${base}${page > 1 ? `page/${page}/` : ''}${query.trim() ? `?s=${encodeURIComponent(query.trim())}` : ''}`; }
 export function parseAbbList(html: string,base: string): AbbEntry[] {
   const matches = [...html.matchAll(post)]; const entries: AbbEntry[] = []; const seen = new Set<string>();
   const titled = matches.filter(match => /rel="bookmark"/i.test(match[0]));

@@ -59,3 +59,5 @@
 .publication-actions{display:flex;flex-wrap:wrap;gap:12px}.audio-player .embedded-video-stage{min-height:240px}.audiobook-art{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:30px;text-align:center;background:radial-gradient(ellipse at center,#29331b,#11150e 75%);color:var(--accent)}.audiobook-art strong{font-size:22px;max-width:620px;line-height:1.4;color:var(--text)}.audiobook-art span{font-size:12px;color:var(--muted)}.audio-player.minimized .audiobook-art{display:none}
 
 .mobile-menu{display:none}
+
+.source-tags span.cached{background:var(--accent);color:#11140d;border-color:var(--accent);font-weight:700}.book-source .source-tags{margin:0 0 12px}.book-source p{margin-bottom:6px}.book-source .publication-actions{margin-top:14px}

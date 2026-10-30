@@ -6,12 +6,12 @@ import type { OnlineStore } from '../storage/online';
 import { parseOPDS, openSearchTemplate, searchURL, audioFormat, audioManifest } from './opds';
 import { sourceDetails } from '../shared/sourceDetails';
 import { RealDebrid } from './realdebrid';
-import { abbDomain, abbSearchURL, parseAbbList, parseAbbDetail, splitAbbTitle, abbItemId, abbItemPath } from './audiobookbay';
+import { abbDomain,abbPageSize, abbSearchURL, parseAbbList, parseAbbDetail, splitAbbTitle, abbItemId, abbItemPath } from './audiobookbay';
 
 const resource = z.union([z.string(),z.object({ name: z.string(),types: z.array(z.string()).optional(),idPrefixes: z.array(z.string()).optional() })]);
 const manifestSchema = z.object({ id: z.string().max(200),name: z.string().max(200),description: z.string().max(5000).default(''),resources: z.array(resource).max(30),types: z.array(z.string()).max(30),idPrefixes: z.array(z.string()).optional(),catalogs: z.array(z.object({ id: z.string().max(300),type: z.string(),name: z.string().optional(),extra: z.array(z.object({ name: z.string(),isRequired: z.boolean().optional(),options: z.array(z.string()).optional() })).optional() })).max(200).default([]) });
 const opdsSchema = z.object({ search: z.string().optional(),catalogs: z.array(z.object({ id: z.string(),url: z.string() })).max(51) });
-const bookLinksSchema = z.array(z.object({ addonId: z.string().uuid(),id: z.string(),links: z.array(z.object({ url: z.string(),name: z.string(),format: z.string().optional(),external: z.boolean(),manifest: z.boolean().optional() })).max(30) })).max(1000);
+const bookLinksSchema = z.array(z.object({ addonId: z.string().uuid(),id: z.string(),detail: z.string().optional(),links: z.array(z.object({ url: z.string(),name: z.string(),format: z.string().optional(),external: z.boolean(),manifest: z.boolean().optional() })).max(30) })).max(1000);
 const installedSchema = z.array(z.object({ id: z.string().uuid(),url: z.string(),enabled: z.boolean(),kind: z.enum(['stremio','opds','abb']).default('stremio'),opds: opdsSchema.optional(),manifest: manifestSchema })).max(50);
 const debridSchema = z.object({ realDebrid: z.string().max(500),username: z.string().max(200).default('') });
 type Installed = z.infer<typeof installedSchema>[number];
@@ -52,6 +52,7 @@ export class Addons {
       addon.manifest.catalogs.push(...addon.manifest.catalogs.filter(c => c.type === 'book').map(c => ({ ...c,type: 'audiobook',name: c.id === 'root' ? 'Audiobooks' : c.name })));
       migrated = true;
     }
+    for (const addon of this.installed) if (addon.kind === 'abb') for (const catalog of addon.manifest.catalogs) if (!catalog.extra?.some(extra => extra.name === 'skip')) { catalog.extra = [...(catalog.extra ?? []),{ name: 'skip' }]; migrated = true; }
     if (migrated) await this.persist();
     if (saved === null) {
       this.installed.push({ kind: 'stremio',id: '6d55f2e7-d36c-47fa-b88c-58ce883a04b3',url: 'https://torrentio.strem.fun/manifest.json',enabled: true,manifest: manifestSchema.parse({ id: 'com.stremio.torrentio.addon',name: 'Torrentio',description: 'Fontes torrent para filmes e séries. Você pode substituir a configuração padrão por um link personalizado.',resources: [{ name: 'stream',types: ['movie','series'],idPrefixes: ['tt'] }],types: ['movie','series'],catalogs: [] }) });
@@ -72,8 +73,10 @@ export class Addons {
   private async document(url: string,limit = 5_000_000,headers?: Record<string,string>) {
     const signal = AbortSignal.any([this.controller.signal,AbortSignal.timeout(25000)]);
     try {
-      const response = await (this.runtime.fetch ?? fetch)(url,{ signal,headers });
-      if (!response.ok) throw new Error(response.status === 429 ? 'Limite de consultas atingido; tente novamente mais tarde.' : response.status === 401 || response.status === 403 ? 'Confira a configuração e a chave deste complemento.' : 'O complemento não respondeu à consulta.');
+      let response = await (this.runtime.fetch ?? fetch)(url,{ signal,headers });
+      // Public catalogs answer 502-504 under load; one quiet retry usually succeeds.
+      if (response.status >= 500) { await new Promise(resolve => setTimeout(resolve,1500)); response = await (this.runtime.fetch ?? fetch)(url,{ signal,headers }); }
+      if (!response.ok) throw new Error(response.status === 429 ? 'Limite de consultas atingido; tente novamente mais tarde.' : response.status === 401 || response.status === 403 ? 'Confira a configuração e a chave deste complemento.' : response.status >= 500 ? 'A fonte está instável no momento. Tente de novo em instantes.' : 'O complemento não respondeu à consulta.');
       if (!response.body) throw new Error('Resposta vazia do complemento.');
       const reader = response.body.getReader(); const chunks: Uint8Array[] = []; let size = 0;
       while (true) { const { done,value } = await reader.read(); if (done) break; size += value.length; if (size > limit) { await reader.cancel(); throw new Error('A resposta do complemento excedeu o limite.'); } chunks.push(value); }
@@ -97,8 +100,12 @@ export class Addons {
         const feed = parseOPDS(response.body,response.url);
         let search = feed.search?.url;
         if (feed.search?.openSearch) { const description = await this.document(feed.search.url,250_000); search = openSearchTemplate(description.body,description.url); }
+        // A Gutenberg address filtered by language (query=l.pt) keeps that filter in text searches too.
+        const address = new URL(response.url); const prefix = /(^|\.)gutenberg\.org$/.test(address.hostname) ? address.searchParams.get('query')?.match(/^l\.[a-z]{2,3}$/i)?.[0] : undefined;
+        const label = prefix ? new Intl.DisplayNames(['pt-BR'],{ type: 'language' }).of(prefix.slice(2).toLowerCase()) : undefined; const title = label ? `Project Gutenberg · ${label[0].toUpperCase()}${label.slice(1)}` : feed.name;
+        if (prefix && search) search = search.replace(/%7BsearchTerms%7D|\{searchTerms\}/i,`${prefix}+{searchTerms}`);
         const catalogs = [{ id: 'root',url: response.url },...feed.navigation.map((link,index) => ({ id: `section-${index}`,url: link.url }))];
-        detected = { kind: 'opds',url: transportURL(response.url).href,opds: { search,catalogs },manifest: manifestSchema.parse({ id: `opds.${createHash('sha256').update(response.url).digest('hex')}`,name: feed.name,description: 'Catálogo OPDS de livros e audiobooks.',types: ['book','audiobook'],resources: ['catalog','meta','stream'],catalogs: ['book','audiobook'].flatMap(type => catalogs.map((c,index) => ({ id: c.id,type,name: index ? feed.navigation[index-1].name : type === 'audiobook' ? 'Audiobooks' : 'Livros',extra: search ? [{ name: 'search' }] : [] }))) }) };
+        detected = { kind: 'opds',url: transportURL(response.url).href,opds: { search,catalogs },manifest: manifestSchema.parse({ id: `opds.${createHash('sha256').update(response.url).digest('hex')}`,name: title,description: 'Catálogo OPDS de livros e audiobooks.',types: ['book','audiobook'],resources: ['catalog','meta','stream'],catalogs: ['book','audiobook'].flatMap(type => catalogs.map((c,index) => ({ id: c.id,type,name: index ? feed.navigation[index-1].name : type === 'audiobook' ? 'Audiobooks' : 'Livros',extra: search ? [{ name: 'search' }] : [] }))) }) };
         break;
       } catch { /* Try the conventional manifest endpoint after the supplied URL. */ }
     }
@@ -116,16 +123,16 @@ export class Addons {
     try {
       const base = abbDomain(value); const page = await this.document(base,2_000_000,browserHeaders);
       if (!parseAbbList(page.body,page.url).length) return;
-      return { kind: 'abb',url: base,manifest: manifestSchema.parse({ id: `abb.${new URL(base).host}`,name: 'AudiobookBay',description: 'Audiobooks por torrent. Os lançamentos aparecem no catálogo e a busca consulta o site.',types: ['audiobook'],resources: ['catalog','meta','stream'],catalogs: [{ id: 'latest',type: 'audiobook',name: 'Lançamentos',extra: [{ name: 'search' }] }] }) };
+      return { kind: 'abb',url: base,manifest: manifestSchema.parse({ id: `abb.${new URL(base).host}`,name: 'AudiobookBay',description: 'Audiobooks por torrent. Os lançamentos aparecem no catálogo e a busca consulta o site.',types: ['audiobook'],resources: ['catalog','meta','stream'],catalogs: [{ id: 'latest',type: 'audiobook',name: 'Lançamentos',extra: [{ name: 'search' },{ name: 'skip' }] }] }) };
     } catch { return; }
   }
   private abbPage(body: string) {
     if (/cf-browser-verification|Just a moment\.\.\./i.test(body)) throw new Error('O AudiobookBay pediu uma verificação do navegador. Tente outro endereço do site.');
     return body;
   }
-  private async abbCatalog(addon: Installed,type: OnlineType,query: string) {
+  private async abbCatalog(addon: Installed,type: OnlineType,query: string,skip: number) {
     if (type !== 'audiobook') throw new Error('Esta fonte oferece apenas audiobooks.');
-    const page = await this.document(abbSearchURL(addon.url,query),5_000_000,browserHeaders);
+    const page = await this.document(abbSearchURL(addon.url,query,Math.floor(skip/abbPageSize)+1),5_000_000,browserHeaders);
     return parseAbbList(this.abbPage(page.body),page.url).map(entry => {
       const { name,authors } = splitAbbTitle(entry.title);
       return this.expose(this.store.cache({ id: abbItemId(entry.path),addonId: addon.id,type,name,year: '',description: entry.title,poster: entry.poster,authors,genres: [],imdbRating: null,videos: [] }));
@@ -188,7 +195,7 @@ export class Addons {
     const catalog = addon.manifest.catalogs.find(c => c.id === catalogId && c.type === type); if (!catalog) throw new Error('Catálogo não encontrado.');
     const extras: Record<string,string> = {};
     if (addon.kind === 'opds') return this.opdsCatalog(addon,type,catalogId,query);
-    if (addon.kind === 'abb') return this.abbCatalog(addon,type,query);
+    if (addon.kind === 'abb') return this.abbCatalog(addon,type,query,skip);
     if (query) { if (!catalog.extra?.some(e => e.name === 'search')) throw new Error('Este catálogo não oferece busca.'); extras.search = query; }
     if (skip) { if (!catalog.extra?.some(e => e.name === 'skip')) throw new Error('Este catálogo não oferece paginação.'); extras.skip = String(skip); }
     if (genre) extras.genre = genre;
@@ -206,7 +213,7 @@ export class Addons {
     const items = feed.books.filter(book => book.type === type).map(book => {
       const id = `opds:${type === 'audiobook' ? 'audio:' : ''}${createHash('sha256').update(book.id).digest('hex')}`;
       this.bookLinks = this.bookLinks.filter(entry => entry.addonId !== addon.id || entry.id !== id);
-      this.bookLinks.push({ addonId: addon.id,id,links: book.links });
+      this.bookLinks.push({ addonId: addon.id,id,detail: book.detail,links: book.links });
       return this.expose(this.store.cache({ id,addonId: addon.id,type,name: book.name,year: book.year,description: book.description,poster: book.poster,authors: book.authors,narrators: book.narrators,genres: [],imdbRating: null,videos: [] }));
     });
     this.bookLinks = this.bookLinks.slice(-1000); const snapshot = structuredClone(this.bookLinks);
@@ -256,21 +263,28 @@ export class Addons {
       try {
         if (addon.kind === 'abb') {
           const page = await this.document(new URL(abbItemPath(id),addon.url).href,2_000_000,browserHeaders); const detail = parseAbbDetail(this.abbPage(page.body));
-          const audioFormats = /^(mp3|m4b|m4a|aac|ogg|flac|wav|opus)$/; const info = [detail.format,detail.bitrate,detail.size ? `${(detail.size/1024**2).toFixed(0)} MB` : ''].filter(Boolean).join(' · ');
+          const audioFormats = /^(mp3|m4b|m4a|aac|ogg|flac|wav|opus)$/; const title = item.description || item.name;
+          const megabytes = (bytes: number) => bytes ? `${(bytes/1024**2).toFixed(0)} MB` : '';
           const add = (summary: OnlineSource,raw: RawSource) => { if (this.references.size >= 10000) this.references.delete(this.references.keys().next().value!); this.references.set(summary.id,{ summary,raw,item }); sources.push(summary); };
-          const torrent = (description: string) => { const format = detail.format?.toLowerCase(); add({ id: randomUUID(),addonId: addon.id,addonName: addon.manifest.name,name: info || 'Torrent',description,transport: 'torrent',provider: 'AudiobookBay',releaseGroup: '',format: format && audioFormats.test(format) ? format : undefined },{ infoHash: detail.infoHash,sources: detail.trackers.map(tracker => `tracker:${tracker}`) }); };
-          if (!this.debridKey) { torrent('Torrent do AudiobookBay. Configure o Real-Debrid em Complementos para ouvir sem depender de seeders.'); return; }
+          // Tags are what the source list shows at a glance, like a torrent list: provider status, format, bitrate and size.
+          const torrent = (description: string,status: string) => { const format = detail.format?.toLowerCase(); add({ id: randomUUID(),addonId: addon.id,addonName: addon.manifest.name,name: title,description,transport: 'torrent',provider: 'AudiobookBay',releaseGroup: '',format: format && audioFormats.test(format) ? format : undefined,tags: [status,detail.format,detail.bitrate,megabytes(detail.size)].filter(Boolean) as string[] },{ infoHash: detail.infoHash,sources: detail.trackers.map(tracker => `tracker:${tracker}`) }); };
+          if (!this.debridKey) { torrent('Torrent do AudiobookBay, sem seeders informados. Configure o Real-Debrid em Complementos para ouvir sem depender deles.','Torrent'); return; }
           try {
             const result = await new RealDebrid(this.debridKey,this.runtime.fetch ?? fetch,this.controller.signal).resolve(detail.infoHash,detail.trackers,this.runtime.debridWait);
             if (result.state === 'ready') for (const [index,file] of result.files.entries()) {
-              const format = audioFormat('',`https://x/${encodeURIComponent(file.name)}`);
-              add({ id: randomUUID(),addonId: addon.id,addonName: addon.manifest.name,name: file.name,description: `Real-Debrid · link direto${file.size ? ` · ${(file.size/1024**2).toFixed(0)} MB` : ''}`,transport: 'http',provider: 'Real-Debrid',releaseGroup: '',format,part: result.files.length > 1 ? index+1 : undefined },{ url: file.url,behaviorHints: { filename: file.name } });
-            } else { errors.push(`Real-Debrid: ainda preparando este audiobook (${Math.round(result.progress)}%). Busque as fontes de novo em instantes.`); torrent('Torrent direto do AudiobookBay, enquanto o Real-Debrid termina.'); }
-          } catch (error: any) { errors.push(`Real-Debrid: ${error.message}`); torrent('Torrent direto do AudiobookBay.'); }
+              const format = audioFormat('',`https://x/${encodeURIComponent(file.name)}`); const many = result.files.length > 1;
+              add({ id: randomUUID(),addonId: addon.id,addonName: addon.manifest.name,name: file.name,description: `${title}\nReal-Debrid · link direto · pronto para ouvir`,transport: 'http',provider: 'Real-Debrid',releaseGroup: '',format,part: many ? index+1 : undefined,tags: ['RD+',many ? `Parte ${index+1} de ${result.files.length}` : '',format?.toUpperCase(),detail.bitrate,megabytes(file.size)].filter(Boolean) as string[] },{ url: file.url,behaviorHints: { filename: file.name } });
+            } else { errors.push(`Real-Debrid: ainda preparando este audiobook (${Math.round(result.progress)}%). Busque as fontes de novo em instantes.`); torrent('Torrent direto do AudiobookBay, enquanto o Real-Debrid termina de prepará-lo.',`RD ${Math.round(result.progress)}%`); }
+          } catch (error: any) { errors.push(`Real-Debrid: ${error.message}`); torrent('Torrent direto do AudiobookBay.','Torrent'); }
           return;
         }
         if (addon.kind === 'opds') {
-          const links = this.bookLinks.find(entry => entry.addonId === addon.id && entry.id === id)?.links ?? [];
+          const saved = this.bookLinks.find(entry => entry.addonId === addon.id && entry.id === id); let links = saved?.links ?? [];
+          if (!links.length && saved?.detail) {
+            // The catalog only linked to the book's own feed; its download links are read when the title is opened.
+            try { const feed = parseOPDS((await this.document(saved.detail)).body,saved.detail); const seen = new Set<string>(); links = feed.books.filter(book => book.type === type).flatMap(book => book.links).filter(link => !seen.has(link.url) && seen.add(link.url)).slice(0,30); }
+            catch (error: any) { errors.push(`${addon.manifest.name}: ${error.message}`); }
+          }
           let part = 0;
           for (const original of links) {
             let resolved = [original];
