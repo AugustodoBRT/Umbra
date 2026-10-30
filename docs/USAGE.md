@@ -64,6 +64,15 @@ A aba **Explorar → Audiobooks** mantém a busca e a escolha de fontes independ
 
 **Minha lista online**, avaliações, seleção de todas/uma fonte e recuperação após reiniciar também funcionam para audiobooks. Para catálogos mistos, áudio é identificado pelo formato do arquivo, pelo tipo MIME ou pela indicação `Audiobook` nos metadados; versões de texto continuam na aba Livros.
 
+### AudiobookBay
+
+Em **Complementos**, cole o endereço atual do AudiobookBay (por exemplo `audiobookbay.lu`; o site troca de domínio com frequência, então use o que estiver funcionando). O Umbra confirma que o endereço lista audiobooks e cria a fonte **AudiobookBay** na aba Audiobooks. Os lançamentos aparecem no catálogo e a busca consulta o site.
+
+- Ao abrir um título, o Umbra lê a página do livro e oferece o torrent com formato, bitrate e tamanho. Tocar ou baixar usa o motor de torrents do app, e o download vai para `Audiobooks`.
+- Se o site pedir verificação do navegador (Cloudflare), a busca informa o erro; tente outro endereço do site.
+- **Real-Debrid:** em **Complementos → Real-Debrid**, cole sua chave de API (real-debrid.com/apitoken; exige conta premium). O Umbra valida a chave, guarda-a criptografada e passa a preparar o torrent na sua conta: ao abrir um título, as opções viram links diretos, uma por arquivo de áudio, em ordem natural, com **Ouvir agora** e **Baixar audiobook**. Se o Real-Debrid ainda estiver baixando, o app informa o progresso e oferece o torrent direto; busque as fontes de novo em instantes. Os torrents ficam na sua conta do Real-Debrid, que o app não apaga.
+- A velocidade depende dos seeders do torrent. O AudiobookBay indexa conteúdo que pode ter direitos autorais; use apenas o que você tem o direito de acessar.
+
 ## O que já funciona
 
 - Escolha de pasta nativa, manifesto estável, SQLite com quatro migrações, transações e bloqueio exclusivo da biblioteca.

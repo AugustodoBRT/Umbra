@@ -25,6 +25,8 @@ export interface API {
   installAddon(url: string): Promise<void>;
   addon(action: 'remove'|'enable'|'disable', id: string): Promise<void>;
   configureAddon(id: string): Promise<void>;
+  debrid(): Promise<{ realDebrid: boolean; username: string }>;
+  saveDebrid(token: string | null): Promise<void>;
   onlineCatalog(addonId: string, catalogId: string, type: import('./online').OnlineType, query: string, skip: number, genre: string): Promise<import('./online').OnlineItem[]>;
   onlineSearch(type: import('./online').OnlineType, query: string, onlyAddon?: string): Promise<import('./online').CatalogResult>;
   openBookSource(sourceId: string): Promise<void>;

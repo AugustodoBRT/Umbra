@@ -1,7 +1,7 @@
 import type { Personal } from './types';
 export type OnlineType = 'movie'|'series'|'book'|'audiobook';
 export interface AddonCatalog { id: string; type: OnlineType; name: string; search: boolean; pagination: boolean; genres: string[]; searchRequired?: boolean }
-export interface AddonSummary { id: string; name: string; description: string; host: string; enabled: boolean; resources: string[]; catalogs: AddonCatalog[]; kind?: 'stremio'|'opds'; types: string[]; sourceResources: { types: string[]; idPrefixes?: string[] }[] }
+export interface AddonSummary { id: string; name: string; description: string; host: string; enabled: boolean; resources: string[]; catalogs: AddonCatalog[]; kind?: 'stremio'|'opds'|'abb'; types: string[]; sourceResources: { types: string[]; idPrefixes?: string[] }[] }
 export interface OnlineVideo { id: string; title: string; season: number; episode: number; overview?: string; released?: string }
 export interface OnlineLocalization { description?: string; genres?: string[]; updatedAt: string }
 export interface OnlineItem { id: string; addonId: string; type: OnlineType; name: string; year: string; description: string; poster?: string; background?: string; genres: string[]; imdbRating: number | null; videos: OnlineVideo[]; personal: Personal; metadataLanguage?: 'pt-BR'; translationNote?: string; authors?: string[]; narrators?: string[] }

@@ -71,12 +71,12 @@ export class Credentials {
       }
       return JSON.parse(plaintext);
   }
-  async loadDocument(name: 'addons'|'downloads'|'book-links'): Promise<unknown | null> {
+  async loadDocument(name: 'addons'|'downloads'|'book-links'|'debrid'): Promise<unknown | null> {
     try { return await this.decodeDocument(await readFile(path.join(this.directory,`${name}.json`),'utf8'),name); }
-    catch (error: any) { if (error.code === 'ENOENT') return null; throw new Error(`Não foi possível ler ${name === 'addons' ? 'os complementos' : 'os downloads'} salvos. Os arquivos foram preservados.`); }
+    catch (error: any) { if (error.code === 'ENOENT') return null; throw new Error(`Não foi possível ler ${name === 'addons' ? 'os complementos' : name === 'debrid' ? 'a chave do Real-Debrid' : 'os downloads'} salvos. Os arquivos foram preservados.`); }
   }
   async save(value: ProviderKeys) { await this.saveDocument('providers',keysSchema.parse(value)); }
-  async saveDocument(name: 'providers'|'addons'|'downloads'|'book-links', value: unknown) {
+  async saveDocument(name: 'providers'|'addons'|'downloads'|'book-links'|'debrid', value: unknown) {
     await this.initialize();
     let envelope: z.infer<typeof envelopeSchema>;
     if (this.system.available()) envelope = { version: 1,backend: 'system',data: this.system.encrypt(JSON.stringify(value)).toString('base64') };

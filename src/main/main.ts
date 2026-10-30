@@ -181,6 +181,8 @@ function handlers() {
   register('addons',() => addons.list());
   register('installAddon',async url => { await addons.install(z.string().trim().max(12000).parse(url)); emit({ type: 'changed' }); },true);
   register('addon',async (action,id) => { await addons.change(z.enum(['remove','enable','disable']).parse(action),idSchema.parse(id)); emit({ type: 'changed' }); },true);
+  register('debrid',() => addons.debrid());
+  register('saveDebrid',async token => { await addons.saveDebrid(z.string().trim().max(500).nullable().parse(token)); emit({ type: 'changed' }); },true);
   register('configureAddon',async id => { await shell.openExternal(id === 'torrentio' ? 'https://torrentio.strem.fun/configure' : addons.configurationURL(idSchema.parse(id))); });
   register('onlineCatalog',(addonId,catalogId,type,query,skip,genre) => addons.catalog(idSchema.parse(addonId),onlineId.parse(catalogId),onlineType.parse(type),z.string().max(300).parse(query),z.number().int().min(0).max(10000).parse(skip),z.string().max(100).parse(genre)),true);
   register('onlineSearch',(type,query,onlyAddon) => addons.search(onlineType.parse(type),z.string().trim().max(300).parse(query),idSchema.optional().parse(onlyAddon)),true);
