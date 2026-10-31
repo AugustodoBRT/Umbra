@@ -6,13 +6,14 @@ import type { OnlineStore } from '../storage/online';
 import { parseOPDS, openSearchTemplate, searchURL, audioFormat, audioManifest } from './opds';
 import { sourceDetails } from '../shared/sourceDetails';
 import { RealDebrid } from './realdebrid';
+import { openLibraryURL,openLibraryItemURL,openLibraryPage,openLibraryId,openLibraryKey,openLibraryPageSize,parseOpenLibrary,sameTitle } from './openlibrary';
 import { abbDomain,abbPageSize, abbSearchURL, parseAbbList, parseAbbDetail, splitAbbTitle, abbItemId, abbItemPath } from './audiobookbay';
 
 const resource = z.union([z.string(),z.object({ name: z.string(),types: z.array(z.string()).optional(),idPrefixes: z.array(z.string()).optional() })]);
 const manifestSchema = z.object({ id: z.string().max(200),name: z.string().max(200),description: z.string().max(5000).default(''),resources: z.array(resource).max(30),types: z.array(z.string()).max(30),idPrefixes: z.array(z.string()).optional(),catalogs: z.array(z.object({ id: z.string().max(300),type: z.string(),name: z.string().optional(),extra: z.array(z.object({ name: z.string(),isRequired: z.boolean().optional(),options: z.array(z.string()).optional() })).optional() })).max(200).default([]) });
 const opdsSchema = z.object({ search: z.string().optional(),catalogs: z.array(z.object({ id: z.string(),url: z.string() })).max(51) });
 const bookLinksSchema = z.array(z.object({ addonId: z.string().uuid(),id: z.string(),detail: z.string().optional(),links: z.array(z.object({ url: z.string(),name: z.string(),format: z.string().optional(),external: z.boolean(),manifest: z.boolean().optional() })).max(30) })).max(1000);
-const installedSchema = z.array(z.object({ id: z.string().uuid(),url: z.string(),enabled: z.boolean(),kind: z.enum(['stremio','opds','abb']).default('stremio'),opds: opdsSchema.optional(),manifest: manifestSchema })).max(50);
+const installedSchema = z.array(z.object({ id: z.string().uuid(),url: z.string(),enabled: z.boolean(),kind: z.enum(['stremio','opds','abb','openlibrary']).default('stremio'),opds: opdsSchema.optional(),manifest: manifestSchema })).max(50);
 const debridSchema = z.object({ realDebrid: z.string().max(500),username: z.string().max(200).default('') });
 type Installed = z.infer<typeof installedSchema>[number];
 export interface RawSource { url?: string; infoHash?: string; fileIdx?: number; sources?: string[]; behaviorHints?: { filename?: string; proxyHeaders?: { request?: Record<string,string> } } }
@@ -47,7 +48,11 @@ export class Addons {
     const debrid = debridSchema.safeParse(await this.credentials.loadDocument('debrid')); if (debrid.success) { this.debridKey = debrid.data.realDebrid; this.debridName = debrid.data.username; }
     this.installed = saved === null ? [{ kind: 'stremio',id: 'f60fa3c7-e121-4452-bc0b-907d580af250',url: 'https://v3-cinemeta.strem.io/manifest.json',enabled: true,manifest: manifestSchema.parse({ id: 'com.linvo.cinemeta',name: 'Cinemeta',description: 'Catálogo de filmes e séries do Stremio.',resources: ['catalog','meta'],types: ['movie','series'],idPrefixes: ['tt'],catalogs: ['movie','series'].map(type => ({ type,id: 'top',name: type === 'movie' ? 'Filmes populares' : 'Séries populares',extra: [{ name: 'search' },{ name: 'skip' },{ name: 'genre',options: ['Action','Adventure','Animation','Comedy','Crime','Documentary','Drama','Family','Fantasy','History','Horror','Mystery','Romance','Sci-Fi','Thriller'] }] })) }) }] : installedSchema.parse(saved);
     let migrated = false;
-    for (const addon of this.installed) if (addon.kind === 'opds' && !addon.manifest.types.includes('audiobook')) {
+    const textOnly = (addon: Installed) => /(^|\.)gutenberg\.org$/.test(new URL(addon.url).hostname);
+    for (const addon of this.installed) if (addon.kind === 'opds' && textOnly(addon) && addon.manifest.types.includes('audiobook')) {
+      addon.manifest.types = addon.manifest.types.filter(type => type !== 'audiobook'); addon.manifest.catalogs = addon.manifest.catalogs.filter(catalog => catalog.type !== 'audiobook'); migrated = true;
+    }
+    for (const addon of this.installed) if (addon.kind === 'opds' && !textOnly(addon) && !addon.manifest.types.includes('audiobook')) {
       addon.manifest.types.push('audiobook');
       addon.manifest.catalogs.push(...addon.manifest.catalogs.filter(c => c.type === 'book').map(c => ({ ...c,type: 'audiobook',name: c.id === 'root' ? 'Audiobooks' : c.name })));
       migrated = true;
@@ -90,8 +95,8 @@ export class Addons {
       const candidate = new URL(initial); candidate.pathname = `${candidate.pathname.replace(/\/(?:configure)?$/, '').replace(/\/$/,'')}/manifest.json`;
       candidates.push(candidate);
     }
-    let detected: Omit<Installed,'id'|'enabled'> | undefined;
-    for (const candidate of candidates) {
+    let detected: Omit<Installed,'id'|'enabled'> | undefined = /(^|\.)openlibrary\.org$/.test(initial.hostname) ? this.openLibraryAddon() : undefined;
+    for (const candidate of detected ? [] : candidates) {
       try {
         const response = await this.document(candidate.href,1_000_000);
         let json: unknown; try { json = JSON.parse(response.body); } catch { /* OPDS can be XML. */ }
@@ -102,10 +107,11 @@ export class Addons {
         if (feed.search?.openSearch) { const description = await this.document(feed.search.url,250_000); search = openSearchTemplate(description.body,description.url); }
         // A Gutenberg address filtered by language (query=l.pt) keeps that filter in text searches too.
         const address = new URL(response.url); const prefix = /(^|\.)gutenberg\.org$/.test(address.hostname) ? address.searchParams.get('query')?.match(/^l\.[a-z]{2,3}$/i)?.[0] : undefined;
+        const gutenberg = /(^|\.)gutenberg\.org$/.test(address.hostname);
         const label = prefix ? new Intl.DisplayNames(['pt-BR'],{ type: 'language' }).of(prefix.slice(2).toLowerCase()) : undefined; const title = label ? `Project Gutenberg · ${label[0].toUpperCase()}${label.slice(1)}` : feed.name;
         if (prefix && search) search = search.replace(/%7BsearchTerms%7D|\{searchTerms\}/i,`${prefix}+{searchTerms}`);
         const catalogs = [{ id: 'root',url: response.url },...feed.navigation.map((link,index) => ({ id: `section-${index}`,url: link.url }))];
-        detected = { kind: 'opds',url: transportURL(response.url).href,opds: { search,catalogs },manifest: manifestSchema.parse({ id: `opds.${createHash('sha256').update(response.url).digest('hex')}`,name: title,description: 'Catálogo OPDS de livros e audiobooks.',types: ['book','audiobook'],resources: ['catalog','meta','stream'],catalogs: ['book','audiobook'].flatMap(type => catalogs.map((c,index) => ({ id: c.id,type,name: index ? feed.navigation[index-1].name : type === 'audiobook' ? 'Audiobooks' : 'Livros',extra: search ? [{ name: 'search' }] : [] }))) }) };
+        detected = { kind: 'opds',url: transportURL(response.url).href,opds: { search,catalogs },manifest: manifestSchema.parse({ id: `opds.${createHash('sha256').update(response.url).digest('hex')}`,name: title,description: 'Catálogo OPDS de livros e audiobooks.',types: gutenberg ? ['book'] : ['book','audiobook'],resources: ['catalog','meta','stream'],catalogs: (gutenberg ? ['book'] : ['book','audiobook']).flatMap(type => catalogs.map((c,index) => ({ id: c.id,type,name: index ? feed.navigation[index-1].name : type === 'audiobook' ? 'Audiobooks' : 'Livros',extra: search ? [{ name: 'search' }] : [] }))) }) };
         break;
       } catch { /* Try the conventional manifest endpoint after the supplied URL. */ }
     }
@@ -125,6 +131,28 @@ export class Addons {
       if (!parseAbbList(page.body,page.url).length) return;
       return { kind: 'abb',url: base,manifest: manifestSchema.parse({ id: `abb.${new URL(base).host}`,name: 'AudiobookBay',description: 'Audiobooks por torrent. Os lançamentos aparecem no catálogo e a busca consulta o site.',types: ['audiobook'],resources: ['catalog','meta','stream'],catalogs: [{ id: 'latest',type: 'audiobook',name: 'Lançamentos',extra: [{ name: 'search' },{ name: 'skip' }] }] }) };
     } catch { return; }
+  }
+  private openLibraryAddon(): Omit<Installed,'id'|'enabled'> {
+    const extra = [{ name: 'search' },{ name: 'skip' }];
+    return { kind: 'openlibrary',url: 'https://openlibrary.org/',manifest: manifestSchema.parse({ id: 'openlibrary',name: 'Open Library',description: 'Catálogo livre de todos os livros, com filtro em português. Mostra edições para baixar quando são domínio público e o endereço do livro para os demais.',types: ['book'],resources: ['catalog','meta','stream'],catalogs: [{ id: 'all',type: 'book',name: 'Todos os livros',extra },{ id: 'pt',type: 'book',name: 'Em português',extra }] }) };
+  }
+  private async openLibraryCatalog(addon: Installed,type: OnlineType,catalogId: string,query: string,skip: number) {
+    if (type !== 'book') throw new Error('Esta fonte oferece apenas livros.');
+    const page = await this.document(openLibraryURL(query,skip,catalogId === 'pt'));
+    return parseOpenLibrary(page.body).map(book => this.expose(this.store.cache({ id: openLibraryId(book.key),addonId: addon.id,type,name: book.title,year: book.year,description: '',poster: book.poster,authors: book.authors,genres: book.subjects,imdbRating: null,videos: [] })));
+  }
+  private async openLibrarySources(addon: Installed,item: OnlineItem,add: (summary: OnlineSource,raw: RawSource) => void,errors: string[]) {
+    const key = openLibraryKey(item.id); const link = (name: string,description: string,url: string) => add({ id: randomUUID(),addonId: addon.id,addonName: addon.manifest.name,name,description,transport: 'http',provider: name,releaseGroup: '',external: true },{ url });
+    // Public-domain editions come from Project Gutenberg, matched by title and author; everything else opens on Open Library.
+    try {
+      const author = item.authors?.[0]?.split(',')[0] ?? ''; const search = new URL('https://www.gutenberg.org/ebooks/search.opds/'); search.searchParams.set('query',`${item.name} ${author}`.trim());
+      const feed = parseOPDS((await this.document(search.href)).body,search.href); const match = feed.books.find(book => book.detail && sameTitle(book.name.replace(/\s*\([^)]*\)\s*$/,''),item.name));
+      if (match?.detail) {
+        const seen = new Set<string>(); const links = parseOPDS((await this.document(match.detail)).body,match.detail).books.flatMap(book => book.links).filter(entry => !entry.external && !seen.has(entry.url) && seen.add(entry.url)).slice(0,12);
+        for (const entry of links) add({ id: randomUUID(),addonId: addon.id,addonName: addon.manifest.name,name: `Project Gutenberg · ${entry.name}`,description: 'Edição de domínio público, sem custo.',transport: 'http',provider: 'Project Gutenberg',releaseGroup: '',format: entry.format,tags: ['Domínio público',entry.format?.toUpperCase()].filter(Boolean) as string[] },{ url: entry.url,behaviorHints: { filename: entry.format ? `livro.${entry.format}` : undefined } });
+      }
+    } catch (error: any) { errors.push(`Project Gutenberg: ${error.message}`); }
+    link('Open Library',item.authors?.length ? 'Detalhes, edições, empréstimo digital e onde comprar. Abre no navegador.' : 'Detalhes e edições. Abre no navegador.',openLibraryPage(key));
   }
   private abbPage(body: string) {
     if (/cf-browser-verification|Just a moment\.\.\./i.test(body)) throw new Error('O AudiobookBay pediu uma verificação do navegador. Tente outro endereço do site.');
@@ -196,6 +224,7 @@ export class Addons {
     const extras: Record<string,string> = {};
     if (addon.kind === 'opds') return this.opdsCatalog(addon,type,catalogId,query);
     if (addon.kind === 'abb') return this.abbCatalog(addon,type,query,skip);
+    if (addon.kind === 'openlibrary') return this.openLibraryCatalog(addon,type,catalogId,query,skip);
     if (query) { if (!catalog.extra?.some(e => e.name === 'search')) throw new Error('Este catálogo não oferece busca.'); extras.search = query; }
     if (skip) { if (!catalog.extra?.some(e => e.name === 'skip')) throw new Error('Este catálogo não oferece paginação.'); extras.skip = String(skip); }
     if (genre) extras.genre = genre;
@@ -261,6 +290,10 @@ export class Addons {
     const sources: OnlineSource[] = []; const errors: string[] = [];
     await Promise.all(this.installed.filter(a => (!onlyAddon || a.id === onlyAddon) && this.supports(a,'stream',type,videoId)).map(async addon => {
       try {
+        if (addon.kind === 'openlibrary') {
+          await this.openLibrarySources(addon,item,(summary,raw) => { if (this.references.size >= 10000) this.references.delete(this.references.keys().next().value!); this.references.set(summary.id,{ summary,raw,item }); sources.push(summary); },errors);
+          return;
+        }
         if (addon.kind === 'abb') {
           const page = await this.document(new URL(abbItemPath(id),addon.url).href,2_000_000,browserHeaders); const detail = parseAbbDetail(this.abbPage(page.body));
           const audioFormats = /^(mp3|m4b|m4a|aac|ogg|flac|wav|opus)$/; const title = item.description || item.name;

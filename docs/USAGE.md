@@ -64,6 +64,12 @@ A aba **Explorar → Audiobooks** mantém a busca e a escolha de fontes independ
 
 **Minha lista online**, avaliações, seleção de todas/uma fonte e recuperação após reiniciar também funcionam para audiobooks. Para catálogos mistos, áudio é identificado pelo formato do arquivo, pelo tipo MIME ou pela indicação `Audiobook` nos metadados; versões de texto continuam na aba Livros.
 
+### Todos os livros (Open Library)
+
+Em **Complementos → Sugestões**, use **Todos os livros (Open Library)**. Na aba Livros, escolha a fonte **Open Library** para uma busca livre por título, autor ou **ISBN** (10 ou 13 dígitos, com ou sem hífens), com **Carregar mais títulos**. O catálogo **Em português** filtra edições em português. Sem busca, aparecem os livros mais desejados.
+
+Ao abrir um livro, o Umbra mostra o que existe: edições de domínio público do **Project Gutenberg** (EPUB e Kindle) para baixar, quando o título e o autor coincidem, e a página do livro no Open Library para detalhes, empréstimo digital e onde comprar. Livros com direitos autorais não têm arquivo para baixar nesta fonte. A cobertura de ISBN varia: edições brasileiras recentes nem sempre estão no Open Library. Audiobooks não têm ISBN no AudiobookBay; busque por título e autor.
+
 ### AudiobookBay
 
 Em **Complementos**, cole o endereço atual do AudiobookBay (por exemplo `audiobookbay.lu`; o site troca de domínio com frequência, então use o que estiver funcionando). O Umbra confirma que o endereço lista audiobooks e cria a fonte **AudiobookBay** na aba Audiobooks. Os lançamentos aparecem no catálogo e a busca consulta o site.
